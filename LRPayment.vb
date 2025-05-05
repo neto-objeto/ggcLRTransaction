@@ -878,7 +878,7 @@ Public Class LRPayment
         End If
 
         loPrint.PrintEnd()
-        PrintTrans()
+        'PrintTrans()
         Return True
 
     End Function

@@ -843,7 +843,7 @@ Public Class LRPayment_Car
         End If
 
         loPrint.PrintEnd()
-        PrintTrans()
+        'PrintTrans()
         Return True
 
     End Function

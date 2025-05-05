@@ -973,7 +973,6 @@ Public Class ARPayment
         End If
 
         loPrint.PrintEnd()
-        PrintTrans()
         Return True
 
     End Function
