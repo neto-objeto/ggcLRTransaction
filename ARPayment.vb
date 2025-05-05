@@ -973,7 +973,6 @@ Public Class ARPayment
         End If
 
         loPrint.PrintEnd()
-        PrintTrans()
         Return True
 
     End Function
@@ -1898,8 +1897,13 @@ endWithRoll:
             .Master("sAcctNmbr") = p_oDTMstr(0).Item("sAcctNmbr")
             loDta = .GetMaster()
 
-            ldDueDate = p_oDTMstr(0).Item("dTransact")
-            If ldDueDate > loDta(0).Item("dDueDatex") Then ldDueDate = loDta(0).Item("dDueDatex")
+
+            If DateTime.Compare(p_oDTMstr(0).Item("dTransact"), loDta(0).Item("dDueDatex")) > 0 Then
+                ldDueDate = loDta(0).Item("dDueDatex")
+            Else
+                ldDueDate = p_oDTMstr(0).Item("dTransact")
+            End If
+
 
             lnActTerm = .getMonthTerm(loDta(0).Item("dFirstPay"), ldDueDate)
 
@@ -1986,10 +1990,14 @@ endWithRoll:
                         End If
                     Else
                         'Since it has no promo rebate then use the default rebate
-                        lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
+                        If lnExcessDay < 30 Then
+                            If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
+                                lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
+                            Else
+                                lnRebates = 0
+                            End If
+                        End If
                     End If
-
-                    getRebates = lnRebates
                 End If
             End If
         End With

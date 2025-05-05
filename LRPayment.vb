@@ -878,7 +878,7 @@ Public Class LRPayment
         End If
 
         loPrint.PrintEnd()
-        PrintTrans()
+        'PrintTrans()
         Return True
 
     End Function
@@ -961,11 +961,18 @@ Public Class LRPayment
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED)
             p_oDTMstr(0).Item("dPostedxx") = p_oApp.getSysDate
 
-            lsSQL = "UPDATE " & p_sMasTable & _
-                   " SET cPostedxx = " & strParm(CStr(xeTranStat.TRANS_POSTED)) & _
-                      ", dPostedxx = " & dateParm(p_oDTMstr(0).Item("dPostedxx")) & _
+            lsSQL = "UPDATE " & p_sMasTable &
+                   " SET cPostedxx = " & strParm(CStr(xeTranStat.TRANS_POSTED)) &
+                      ", dPostedxx = " & dateParm(p_oDTMstr(0).Item("dPostedxx")) &
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+
+            'maynard 2025.05.05
+            '   added validation, rollback changes if rows affected is <= 0
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
 
@@ -1578,10 +1585,10 @@ Public Class LRPayment
     Private Function isValidReceipt(ByVal fsValue As String) As Boolean
         Dim lsSQL As String
 
-        lsSQL = "SELECT * " & _
-            " FROM LR_Payment_Master" & _
-            " WHERE sTransNox LIKE " & strParm(Left(p_oDTMstr(0).Item("sTransNox"), 6) + "%") & _
-            " AND sReferNox = " & strParm(fsValue) & _
+        lsSQL = "SELECT * " &
+            " FROM LR_Payment_Master" &
+            " WHERE sTransNox LIKE " & strParm(Left(p_oDTMstr(0).Item("sTransNox"), 6) + "%") &
+            " AND sReferNox = " & strParm(fsValue) &
             " AND cPostedxx <> " & strParm(xeTranStat.TRANS_CANCELLED)
 
         Dim loRec As DataTable
@@ -1589,7 +1596,7 @@ Public Class LRPayment
         loRec = p_oApp.ExecuteQuery(lsSQL)
 
         If loRec.Rows.Count > 0 Then
-            MsgBox("Duplicate Receipt Number Detected!!!" & vbCrLf & _
+            MsgBox("Duplicate Receipt Number Detected!!!" & vbCrLf &
                     "Verify your entry then try again!", vbCritical, "Warning")
             isValidReceipt = False
         Else
@@ -1600,6 +1607,7 @@ Public Class LRPayment
 
         Return isValidReceipt
     End Function
+
 
     Public Sub New(ByVal foRider As GRider)
         p_oApp = foRider
