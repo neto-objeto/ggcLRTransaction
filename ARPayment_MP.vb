@@ -1634,6 +1634,8 @@ Public Class ARPayment_MP
                 If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
                     lnRebates = lnRebates + loDta(0).Item("nRebatesx")
                 End If
+            Else
+                lnRebates = 0
             End If
         End With
 

@@ -1593,8 +1593,13 @@ Public Class ARPayment_PR
                             lnRebates = lnRebates + ((lnPaymTerm - lnTotlTerm) * loDta(0).Item("nRebatesx"))
                         End If
                     Else
-                        'Since it has no promo rebate then use the default rebate
-                        lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
+                        If lnExcessDay < 30 Then
+                            If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
+                                lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
+                            Else
+                                lnRebates = 0
+                            End If
+                        End If
                     End If
 
                     getRebates = lnRebates
