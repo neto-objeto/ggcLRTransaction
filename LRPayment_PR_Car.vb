@@ -847,11 +847,18 @@ Public Class LRPayment_PR_Car
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED)
             p_oDTMstr(0).Item("dPostedxx") = p_oApp.getSysDate
 
-            lsSQL = "UPDATE " & p_sMasTable & _
-                   " SET cPostedxx = " & strParm(CStr(xeTranStat.TRANS_POSTED)) & _
-                      ", dPostedxx = " & dateParm(p_oDTMstr(0).Item("dPostedxx")) & _
+            lsSQL = "UPDATE " & p_sMasTable &
+                   " SET cPostedxx = " & strParm(CStr(xeTranStat.TRANS_POSTED)) &
+                      ", dPostedxx = " & dateParm(p_oDTMstr(0).Item("dPostedxx")) &
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+
+            'maynard 2025.05.05
+            '   added validation, rollback changes if rows affected is <= 0
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
 

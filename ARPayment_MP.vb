@@ -561,7 +561,7 @@ Public Class ARPayment_MP
         End If
 
         If p_cTranType = "2" Then
-            'If Not isRebateOk() Then Return False
+            If Not isRebateOk() Then Return False
         End If
 
         Dim lsSQL As String = ""
@@ -1579,8 +1579,11 @@ Public Class ARPayment_MP
             .Master("sAcctNmbr") = p_oDTMstr(0).Item("sAcctNmbr")
             loDta = .GetMaster()
 
-            ldDueDate = p_oDTMstr(0).Item("dTransact")
-            If ldDueDate > loDta(0).Item("dDueDatex") Then ldDueDate = loDta(0).Item("dDueDatex")
+            If DateTime.Compare(p_oDTMstr(0).Item("dTransact"), loDta(0).Item("dDueDatex")) > 0 Then
+                ldDueDate = loDta(0).Item("dDueDatex")
+            Else
+                ldDueDate = p_oDTMstr(0).Item("dTransact")
+            End If
 
             lnActTerm = .getMonthTerm(loDta(0).Item("dFirstPay"), ldDueDate)
 
