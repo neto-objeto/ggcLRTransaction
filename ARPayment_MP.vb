@@ -830,7 +830,7 @@ Public Class ARPayment_MP
     'End Function
 
     Public Function PrintTrans() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -860,8 +860,8 @@ Public Class ARPayment_MP
             If p_sParent = "" Then p_oApp.BeginTransaction()
 
             Dim lsSQL As String
-            lsSQL = "UPDATE " & p_sMasTable & _
-                   " SET cPrintedx = " & strParm(xeLogical.YES) & _
+            lsSQL = "UPDATE " & p_sMasTable &
+                   " SET cPrintedx = " & strParm(xeLogical.YES) &
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
             p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
 
@@ -917,7 +917,7 @@ Public Class ARPayment_MP
         'loPrint.Print(32.3, 8.2, "0.0", StringAlignment.Far)
         'Total Amount due
         loPrint.Print(30.5, 7.6, Format(lnVatSales + lnLessVatx, "#,##0.00"), StringAlignment.Far)
-        
+
 
         ''Model/Color/Engine No
         'loPrint.Print(17.3, 3.7, "Model/Color: " & p_oOthersx.sModelNme & " / " & p_oOthersx.sColorNme & " / " & "Serial No.: " & p_oOthersx.sSerialNo)
@@ -926,12 +926,12 @@ Public Class ARPayment_MP
         loPrint.Print(14.9, 0.5, "Monthly Amortization")
         loPrint.Print(14.9, 7.6, Format(p_oDTMstr(0).Item("nAmountxx") + p_oDTMstr(0).Item("nRebatesx"), "#,##0.00"), StringAlignment.Far)
         'Penalty
-            If CDec(p_oDTMstr(0).Item("nPenaltyx")) > 0.0 Then
+        If CDec(p_oDTMstr(0).Item("nPenaltyx")) > 0.0 Then
             loPrint.Print(16.5, 0.5, "Penalty")
             loPrint.Print(16.5, 7.6, Format(p_oDTMstr(0).Item("nPenaltyx"), "#,##0.00"), StringAlignment.Far)
         End If
         'Rebate
-            If CDec(p_oDTMstr(0).Item("nRebatesx")) > 0.0 Then
+        If CDec(p_oDTMstr(0).Item("nRebatesx")) > 0.0 Then
             loPrint.Print(18.1, 0.5, "Rebate")
             loPrint.Print(18.1, 7.6, "-" & Format(p_oDTMstr(0).Item("nRebatesx"), "#,##0.00"), StringAlignment.Far)
         End If
@@ -939,6 +939,158 @@ Public Class ARPayment_MP
         loPrint.PrintEnd()
         Return True
 
+    End Function
+
+
+    '===========================================================
+    ' Prints Official Receipt for RightWealth transactions
+    ' Handles validation, DB update, VAT computation, and printing
+    ' Created By: TEEJEI
+    ' Date Created : 12-27-2025
+    '===========================================================
+    Public Function PrintTransRightWealth() As Boolean
+
+        '-------------------------------------------------------
+        ' Validate current edit mode
+        '-------------------------------------------------------
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
+            p_nEditMode = xeEditMode.MODE_UPDATE) Then
+
+            MsgBox("Invalid Edit Mode detected!",
+               MsgBoxStyle.OkOnly + MsgBoxStyle.Critical,
+               p_sMsgHeadr)
+            Return False
+        End If
+
+        '-------------------------------------------------------
+        ' Prevent printing of cancelled transactions
+        '-------------------------------------------------------
+        If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
+            MsgBox("Receipt was already CANCELLED!",
+               MsgBoxStyle.OkOnly + MsgBoxStyle.Critical,
+               p_sMsgHeadr)
+            Return False
+        End If
+
+        '-------------------------------------------------------
+        ' Mark transaction as printed
+        '-------------------------------------------------------
+        p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES
+
+        '-------------------------------------------------------
+        ' Update printed flag in database
+        '-------------------------------------------------------
+        Try
+            ' Start DB transaction if standalone
+            If p_sParent = "" Then p_oApp.BeginTransaction()
+
+            Dim lsSQL As String
+            lsSQL = "UPDATE " & p_sMasTable &
+                " SET cPrintedx = " & strParm(xeLogical.YES) &
+                " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
+
+            ' Execute update
+            p_oApp.Execute(lsSQL,
+                       p_sMasTable,
+                       Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+
+            ' Commit if standalone
+            If p_sParent = "" Then p_oApp.CommitTransaction()
+
+        Catch ex As Exception
+            ' Rollback on error
+            If p_sParent = "" Then p_oApp.RollBackTransaction()
+            MsgBox(ex.Message)
+            Return False
+        End Try
+
+        '-------------------------------------------------------
+        ' Initialize printer
+        '-------------------------------------------------------
+        Dim loPrint As ggcLRReports.clsDirectPrintSF
+        loPrint = New ggcLRReports.clsDirectPrintSF
+        loPrint.PrintFont = New Font("Arial", 9)
+        loPrint.PrintBegin()
+
+        '-------------------------------------------------------
+        ' Compute totals and VAT (VAT-inclusive)
+        '-------------------------------------------------------
+        Dim lnTotlSale As Decimal =
+        p_oDTMstr(0).Item("nAmountxx") +
+        p_oDTMstr(0).Item("nPenaltyx")
+
+        ' VAT breakdown (12%)
+        Dim lnVatSales As Decimal = lnTotlSale / 1.12
+        Dim lnLessVatx As Decimal = lnVatSales * 0.12
+
+        '-------------------------------------------------------
+        ' Header information
+        '-------------------------------------------------------
+        loPrint.Print(7.7, 6.8,
+                  Format(p_oDTMstr(0).Item("dTransact"), "MMM dd, yyyy"))
+
+        loPrint.Print(9.3, 3.6,
+                  Master(80) & " / " & p_oDTMstr(0).Item("sAcctNmbr"))
+
+        loPrint.Print(11.4, 3.6, Master(81))
+
+        '-------------------------------------------------------
+        ' Amount display
+        '-------------------------------------------------------
+        loPrint.Print(15.2, 3.3, AmountInWords(lnTotlSale))
+        loPrint.Print(17.2, 7.3,
+                  Format(lnTotlSale, "#,##0.00"),
+                  StringAlignment.Far)
+
+        '-------------------------------------------------------
+        ' VAT Summary (Left section)
+        '-------------------------------------------------------
+        loPrint.Print(6.8, 1.6, Format(lnTotlSale, "#,##0.00"))   ' VAT Inclusive
+        loPrint.Print(8.5, 1.6, Format(lnLessVatx, "#,##0.00"))  ' VAT Amount
+        loPrint.Print(10.0, 1.6, Format(lnVatSales, "#,##0.00")) ' VATable Sales
+
+        ' Total amount due (should equal VAT-inclusive)
+        loPrint.Print(15.7, 1.6,
+                  Format(lnVatSales + lnLessVatx, "#,##0.00"))
+
+        '-------------------------------------------------------
+        ' VAT Breakdown (Right section)
+        '-------------------------------------------------------
+        loPrint.Print(20.3, 1.6, Format(lnVatSales, "#,##0.00")) ' VATable
+        loPrint.Print(25, 1.6, Format(lnLessVatx, "#,##0.00"))  ' VAT
+        loPrint.Print(23.3, 1.6, "0.00")                        ' Zero-rated
+        loPrint.Print(21.8, 1.6, "0.00")                        ' VAT-exempt
+
+        '-------------------------------------------------------
+        ' Optional charges
+        '-------------------------------------------------------
+        ' Penalty
+        If CDec(p_oDTMstr(0).Item("nPenaltyx")) > 0.0 Then
+            loPrint.Print(24.9, 7.6,
+                      Format(p_oDTMstr(0).Item("nPenaltyx"), "#,##0.00"),
+                      StringAlignment.Far)
+        End If
+
+        ' Rebate
+        If CDec(p_oDTMstr(0).Item("nRebatesx")) > 0.0 Then
+            loPrint.Print(27.3, 7.6,
+                      Format(p_oDTMstr(0).Item("nRebatesx"), "#,##0.00"),
+                      StringAlignment.Far)
+        End If
+
+        ' Interest / other charges
+        If CDec(p_oDTMstr(0).Item("nIntAmtxx")) > 0.0 Then
+            loPrint.Print(29, 7.6,
+                      Format(p_oDTMstr(0).Item("nIntAmtxx"), "#,##0.00"),
+                      StringAlignment.Far)
+        End If
+
+        '-------------------------------------------------------
+        ' Finalize printing
+        '-------------------------------------------------------
+        loPrint.PrintEnd()
+
+        Return True
     End Function
 
     'Public Function PostTransaction()
