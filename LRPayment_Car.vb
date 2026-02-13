@@ -524,7 +524,7 @@ Public Class LRPayment_Car
                 lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, , p_oApp.UserID, p_oApp.SysDate)
 
                 If Trim(p_oOthersx.sCheckNox) <> "" Then
-
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
                     MsgBox("This payment is using a check! Please use the PR Module...", MsgBoxStyle.Critical, "Payment Validation")
                     Return False
 
@@ -551,7 +551,10 @@ Public Class LRPayment_Car
             End If
 
             If lsSQL <> "" Then
-                p_oApp.Execute(lsSQL, p_sMasTable, p_sBranchCd)
+                If p_oApp.Execute(lsSQL, p_sMasTable, p_sBranchCd) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+                    Return False
+                End If
             End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
@@ -592,7 +595,10 @@ Public Class LRPayment_Car
 
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED)
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
 
@@ -769,7 +775,11 @@ Public Class LRPayment_Car
             lsSQL = "UPDATE " & p_sMasTable & _
                    " SET cPrintedx = " & strParm(xeLogical.YES) & _
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
         Catch ex As Exception
@@ -936,7 +946,6 @@ Public Class LRPayment_Car
             '   added validation, rollback changes if rows affected is <= 0
             If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
-
                 Return False
             End If
 

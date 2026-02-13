@@ -524,8 +524,8 @@ Public Class ARPayment_PR_MP
                     loChck = New CheckReceived(p_oApp)
                     loChck.Parent = "LRPayment_PR"
                     If Not loChck.LoadByCheckInfo(p_oOthersx.sAcctNoxx, p_oOthersx.sCheckNox, p_oOthersx.sCheckDte) Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
                         MsgBox("Unable to load/create check info!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-                        p_oApp.RollBackTransaction()
                         Return False
                     End If
 
@@ -538,8 +538,8 @@ Public Class ARPayment_PR_MP
                     loChck.Master("nAmountxx") = p_oOthersx.nCheckAmt
 
                     If Not loChck.SaveTransaction Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
                         MsgBox("Unable to save check info!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-                        p_oApp.RollBackTransaction()
                         Return False
                     End If
 
@@ -651,7 +651,11 @@ Public Class ARPayment_PR_MP
             lsSQL = "UPDATE " & p_sMasTable & _
                    " SET cPrintedx = " & strParm(xeLogical.YES) & _
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
         Catch ex As Exception

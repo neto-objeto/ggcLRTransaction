@@ -763,7 +763,10 @@ Public Class CheckReceivedCar
                 lsSQL = "UPDATE " & p_oDTDetl(lnRow).Item("sTranTble") & _
                         " SET cTranStat = '3'" & _
                         " WHERE sTransNox = " & strParm(p_oDTDetl(lnRow).Item("sReferNox"))
-                p_oApp.Execute(lsSQL, p_oDTDetl(lnRow).Item("sTranTble"))
+                If p_oApp.Execute(lsSQL, p_oDTDetl(lnRow).Item("sTranTble")) <= 0 Then
+                    p_oApp.RollBackTransaction()
+                    Return False
+                End If
             Next
 
             lsSQL = "UPDATE Checks_Received" & _
@@ -771,7 +774,11 @@ Public Class CheckReceivedCar
                       ", dStatChng = " & dateParm(fdORIssued) & _
                       ", cTranStat = '3'" & _
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, "Checks_Received")
+            If p_oApp.Execute(lsSQL, "Checks_Received") <= 0 Then
+                p_oApp.RollBackTransaction()
+                Return False
+            End If
+
             p_oDTMstr(0).Item("cChckStat") = xeCheckStatCancelled
             p_oDTMstr(0).Item("dStatChng") = fdORIssued
             p_oDTMstr(0).Item("cTranStat") = "3"
@@ -825,15 +832,15 @@ Public Class CheckReceivedCar
                         loTrans = New ARPayment(p_oApp, lsSQL)
                         loTrans.Parent = "CheckReceived"
                         If Not loTrans.NewTransaction Then
-                            MsgBox("Cannot create new AR Payment transaction...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
                             p_oApp.RollBackTransaction()
+                            MsgBox("Cannot create new AR Payment transaction...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
                             Return False
                         End If
 
                         If LCase(p_oDTDetl(lnRow).Item("sSourceCD")) = "prec" Then
                             If p_oDTDetl(lnRow).Item("cTranType") <> "2" Then
-                                MsgBox("Cannot clear receipt with transaction other than the MONTHLY PAYMENT...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
                                 p_oApp.RollBackTransaction()
+                                MsgBox("Cannot clear receipt with transaction other than the MONTHLY PAYMENT...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
                                 Return False
                             End If
                         End If
@@ -850,16 +857,15 @@ Public Class CheckReceivedCar
 
                         loTrans.Master("nAmountxx") = p_oDTDetl(lnRow).Item("nTranAmtx")
                         loTrans.Master("nRebatesx") = p_oDTDetl(lnRow).Item("nRebatesx")
+                        loTrans.Master("nPenaltyx") = p_oDTDetl(lnRow).Item("nPenaltyx")
 
                         loTrans.Master("sSourceCD") = "CChk"
                         loTrans.Master("sSourceNo") = p_oDTDetl(lnRow).Item("sTransNox")
                         loTrans.Master("sCollIDxx") = p_oDTDetl(lnRow).Item("sCollIDxx")
 
-                        If loTrans.SaveTransaction Then
-                            MsgBox("AR Payment transaction was save successfully...", MsgBoxStyle.OkOnly + MsgBoxStyle.OkOnly, p_sMsgHeadr)
-                        Else
-                            MsgBox("Cannot save AR Payment transaction...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
+                        If Not loTrans.SaveTransaction Then
                             p_oApp.RollBackTransaction()
+                            MsgBox("Cannot save AR Payment transaction...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
                             Return False
                         End If
                     Case "lrpy"
@@ -868,8 +874,8 @@ Public Class CheckReceivedCar
                         loTrans.Parent = "CheckReceived"
 
                         If Not loTrans.NewTransaction Then
-                            MsgBox("Cannot create new LR Payment transaction...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
                             p_oApp.RollBackTransaction()
+                            MsgBox("Cannot create new LR Payment transaction...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
                             Return False
                         End If
 
@@ -887,11 +893,9 @@ Public Class CheckReceivedCar
                         loTrans.Master("sSourceNo") = p_oDTDetl(lnRow).Item("sTransNox")
                         loTrans.Master("sCollIDxx") = p_oDTDetl(lnRow).Item("sCollIDxx")
 
-                        If loTrans.SaveTransaction Then
-                            MsgBox("LR Payment transaction was save successfully...", MsgBoxStyle.Information + MsgBoxStyle.OkOnly, p_sMsgHeadr)
-                        Else
-                            MsgBox("Cannot save LR Payment transaction...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
+                        If Not loTrans.SaveTransaction Then
                             p_oApp.RollBackTransaction()
+                            MsgBox("Cannot save LR Payment transaction...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
                             Return False
                         End If
                 End Select
@@ -907,7 +911,10 @@ Public Class CheckReceivedCar
                                ", dPostedxx = " & dateParm(p_oApp.getSysDate) &
                             " WHERE sTransNox = " & strParm(p_oDTDetl(lnRow).Item("sReferNox"))
                 End If
-                p_oApp.Execute(lsSQL, p_oDTDetl(lnRow).Item("sTranTble"))
+                If p_oApp.Execute(lsSQL, p_oDTDetl(lnRow).Item("sTranTble")) <= 0 Then
+                    p_oApp.RollBackTransaction()
+                    Return False
+                End If
             Next
 
             If p_oDTMstr(0).Item("cDepositd") = "0" Then
@@ -915,7 +922,10 @@ Public Class CheckReceivedCar
                         " SET cDepositd = '1'" &
                            ", dDepositd = " & dateParm(fdORIssued) &
                         " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-                p_oApp.Execute(lsSQL, "Checks_Received")
+                If p_oApp.Execute(lsSQL, "Checks_Received") <= 0 Then
+                    p_oApp.RollBackTransaction()
+                    Return False
+                End If
 
                 p_oDTMstr(0).Item("cDepositd") = "1"
                 p_oDTMstr(0).Item("dDepositd") = fdORIssued
@@ -926,7 +936,10 @@ Public Class CheckReceivedCar
                       ", dStatChng = " & dateParm(fdORIssued) &
                       ", cTranStat = '2'" &
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, "Checks_Received")
+            If p_oApp.Execute(lsSQL, "Checks_Received") <= 0 Then
+                p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             p_oDTMstr(0).Item("cChckStat") = xeCheckStatCleared
             p_oDTMstr(0).Item("dStatChng") = fdORIssued
@@ -983,7 +996,10 @@ Public Class CheckReceivedCar
                 lsSQL = "UPDATE " & p_oDTDetl(lnRow).Item("sTranTble") & _
                         " SET cTranStat = '3'" & _
                         " WHERE sTransNox = " & strParm(p_oDTDetl(lnRow).Item("sReferNox"))
-                p_oApp.Execute(lsSQL, p_oDTDetl(lnRow).Item("sTranTble"))
+                If p_oApp.Execute(lsSQL, p_oDTDetl(lnRow).Item("sTranTble")) <= 0 Then
+                    p_oApp.RollBackTransaction()
+                    Return False
+                End If
             Next
 
             If p_oDTMstr(0).Item("cDepositd") = "0" Then
@@ -991,7 +1007,10 @@ Public Class CheckReceivedCar
                         " SET cDepositd = '1'" & _
                            ", dDepositd = " & dateParm(fdORIssued) & _
                         " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-                p_oApp.Execute(lsSQL, "Checks_Received")
+                If p_oApp.Execute(lsSQL, "Checks_Received") <= 0 Then
+                    p_oApp.RollBackTransaction()
+                    Return False
+                End If
 
                 p_oDTMstr(0).Item("cDepositd") = "1"
                 p_oDTMstr(0).Item("dDepositd") = fdORIssued
@@ -1002,7 +1021,11 @@ Public Class CheckReceivedCar
                       ", dStatChng = " & dateParm(fdORIssued) & _
                       ", cTranStat = '3'" & _
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, "Checks_Received")
+            If p_oApp.Execute(lsSQL, "Checks_Received") <= 0 Then
+                p_oApp.RollBackTransaction()
+                Return False
+            End If
+
             p_oDTMstr(0).Item("cChckStat") = xeCheckStatBounce
             p_oDTMstr(0).Item("dStatChng") = fdORIssued
             p_oDTMstr(0).Item("cTranStat") = "3"
@@ -1051,7 +1074,10 @@ Public Class CheckReceivedCar
                    " SET cChckStat =  " & strParm(xeCheckStatHold) & _
                       ", dStatChng = " & dateParm(fdORIssued) & _
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, "Checks_Received")
+            If p_oApp.Execute(lsSQL, "Checks_Received") <= 0 Then
+                p_oApp.RollBackTransaction()
+                Return False
+            End If
             p_oDTMstr(0).Item("cChckStat") = xeCheckStatHold
             p_oDTMstr(0).Item("dStatChng") = fdORIssued
 
@@ -1083,54 +1109,80 @@ Public Class CheckReceivedCar
 
         If loDta.Rows.Count = 0 Then Return False
 
-        'Was it saved in Check_Payments_Others
-        If loDta(0).Item("sTableNme") = "Checks_Received_Others" Then
-            'Delete Record from Check_Payments_Others
-            lsSQL = "DELETE FROM Checks_Received_Others" & _
-                   " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox")) & _
-                     " AND sReferNox = " & strParm(loDta(0).Item("sReferNox")) & _
+        Try
+
+            p_oApp.BeginTransaction()
+            'Was it saved in Check_Payments_Others
+            If loDta(0).Item("sTableNme") = "Checks_Received_Others" Then
+                'Delete Record from Check_Payments_Others
+                lsSQL = "DELETE FROM Checks_Received_Others" &
+                   " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox")) &
+                     " AND sReferNox = " & strParm(loDta(0).Item("sReferNox")) &
                      " AND sSourceCD = " & strParm(loDta(0).Item("sSourceCD"))
-            p_oApp.Execute(lsSQL, "Checks_Received_Others")
+                If p_oApp.Execute(lsSQL, "Checks_Received_Others") <= 0 Then
+                    p_oApp.RollBackTransaction()
+                    Return False
+                End If
 
-            'Deduct amount from Check_Payments
-            lsSQL = "UPDATE Checks_Received " & _
-                   " SET nAmountxx = nAmountxx - " & loDta(0).Item("nAmountxx") & _
+                'Deduct amount from Check_Payments
+                lsSQL = "UPDATE Checks_Received " &
+                   " SET nAmountxx = nAmountxx - " & loDta(0).Item("nAmountxx") &
                    " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, "Checks_Received")
-        Else
-            'Is the transaction amount the same with that of Check_Payments
-            If p_oDTMstr(0).Item("nAmountxx") = loDta(0).Item("nAmountxx") Then
-                'Cancel Check payments - assume 1 check = 1 PR
-                lsSQL = "UPDATE Checks_Received" & _
-                       " SET cTranStat = '3'" & _
-                          ", cChckStat = " & strParm(xeCheckStatCancelled) & _
-                       " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox"))
-                p_oApp.Execute(lsSQL, "Checks_Received")
+                If p_oApp.Execute(lsSQL, "Checks_Received") <= 0 Then
+                    p_oApp.RollBackTransaction()
+                    Return False
+                End If
             Else
-                'Search another check record using the same Check No
-                lsSQL = "SELECT sReferNox, sSourceCD" & _
-                       " FROM Checks_Received_Others" & _
+                'Is the transaction amount the same with that of Check_Payments
+                If p_oDTMstr(0).Item("nAmountxx") = loDta(0).Item("nAmountxx") Then
+                    'Cancel Check payments - assume 1 check = 1 PR
+                    lsSQL = "UPDATE Checks_Received" &
+                       " SET cTranStat = '3'" &
+                          ", cChckStat = " & strParm(xeCheckStatCancelled) &
                        " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox"))
-                Dim loDtx As DataTable = p_oApp.ExecuteQuery(lsSQL)
+                    If p_oApp.Execute(lsSQL, "Checks_Received") <= 0 Then
+                        p_oApp.RollBackTransaction()
+                        Return False
+                    End If
 
-                'Delete the check record found
-                lsSQL = "DELETE FROM Checks_Received_Others" & _
-                       " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox")) & _
-                         " AND sReferNox = " & strParm(loDtx(0).Item("sReferNox")) & _
+                Else
+                    'Search another check record using the same Check No
+                    lsSQL = "SELECT sReferNox, sSourceCD" &
+                       " FROM Checks_Received_Others" &
+                       " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox"))
+                    Dim loDtx As DataTable = p_oApp.ExecuteQuery(lsSQL)
+
+                    'Delete the check record found
+                    lsSQL = "DELETE FROM Checks_Received_Others" &
+                       " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox")) &
+                         " AND sReferNox = " & strParm(loDtx(0).Item("sReferNox")) &
                          " AND sSourceCD = " & strParm(loDtx(0).Item("sSourceCD"))
-                p_oApp.Execute(lsSQL, "Checks_Received_Others")
+                    If p_oApp.Execute(lsSQL, "Checks_Received_Others") <= 0 Then
+                        p_oApp.RollBackTransaction()
+                        Return False
+                    End If
 
-                'Transfer the reference of the deleted record to the main check record 
-                lsSQL = "UPDATE Checks_Received " & _
-                       " SET nAmountxx = nAmountxx - " & loDta(0).Item("nAmountxx") & _
-                          ", sReferNox = " & strParm(loDtx(0).Item("sReferNox")) & _
-                          ", sSourceCD = " & strParm(loDtx(0).Item("sSourceCD")) & _
+                    'Transfer the reference of the deleted record to the main check record 
+                    lsSQL = "UPDATE Checks_Received " &
+                       " SET nAmountxx = nAmountxx - " & loDta(0).Item("nAmountxx") &
+                          ", sReferNox = " & strParm(loDtx(0).Item("sReferNox")) &
+                          ", sSourceCD = " & strParm(loDtx(0).Item("sSourceCD")) &
                        " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox"))
-                p_oApp.Execute(lsSQL, "Checks_Received")
+                    If p_oApp.Execute(lsSQL, "Checks_Received") <= 0 Then
+                        p_oApp.RollBackTransaction()
+                        Return False
+                    End If
+                End If
             End If
-        End If
 
-        Return True
+            p_oApp.CommitTransaction()
+
+            Return True
+        Catch ex As Exception
+            p_oApp.RollBackTransaction()
+            MsgBox(ex.Message)
+            Return False
+        End Try
     End Function
 
     Private Function isEntryOk() As Boolean

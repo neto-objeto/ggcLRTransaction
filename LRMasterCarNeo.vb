@@ -485,9 +485,9 @@ Public Class LRMasterCarNeo
 
                 lnRow = p_oAppDrvr.Execute(lsSQL, pxeMasterTble)
                 If lnRow <= 0 Then
-                    MsgBox("Unable to Save Transaction!!!" & vbCrLf & _
-                            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     p_oAppDrvr.RollBackTransaction()
+                    MsgBox("Unable to Save Transaction!!!" & vbCrLf &
+                            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     Return False
                 End If
             End With
@@ -522,8 +522,8 @@ Public Class LRMasterCarNeo
                     .Master("sClientID") = p_oDTMaster.Rows(0)("sClientID")
 
                     If Not .SaveTransaction Then
-                        MsgBox("Unable to save serial info!", vbOKOnly, pxeMODULENAME)
                         p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to save serial info!", vbOKOnly, pxeMODULENAME)
                         Return False
                     End If
                 End With
@@ -548,9 +548,9 @@ Public Class LRMasterCarNeo
 
                 lnRow = p_oAppDrvr.Execute(lsSQL, pxeDetailTble)
                 If lnRow <= 0 Then
-                    MsgBox("Unable to Save Transaction!!!" & vbCrLf & _
-                            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     p_oAppDrvr.RollBackTransaction()
+                    MsgBox("Unable to Save Transaction!!!" & vbCrLf &
+                            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     Return False
                 End If
 
@@ -559,19 +559,19 @@ Public Class LRMasterCarNeo
                     "WHERE sTransNox = " & strParm(p_oDTMaster.Rows(0)("sApplicNo"))
 
                 lnRow = p_oAppDrvr.Execute(lsSQL, pxeMasterTble)
-                'If lnRow <= 0 Then
-                '    MsgBox("Unable to Save Transaction!!!" & vbCrLf &
-                '            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
-                '    p_oAppDrvr.RollBackTransaction()
-                '    Return False
-                'End If
+                If lnRow <= 0 Then
+                    p_oAppDrvr.RollBackTransaction()
+                    MsgBox("Unable to Save Transaction!!!" & vbCrLf &
+                            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
+                    Return False
+                End If
             End With
 
             If p_oDTMaster.Rows(0)("sClientID") <> "" Then
                 If p_oDTMaster.Rows(0)("sApplicNo") = "" Then
                     If Not p_oClient.SaveClient Then
-                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         Return False
                     End If
                 End If
@@ -599,7 +599,8 @@ Public Class LRMasterCarNeo
                 p_oAppDrvr.BeginTransaction()
 
                 If Not IsDBNull(.Rows(0)("cAcctStat")) Then
-                    MsgBox("Unable to Post Transaction!!!" & vbCrLf & _
+                    p_oAppDrvr.RollBackTransaction()
+                    MsgBox("Unable to Post Transaction!!!" & vbCrLf &
                             "Please contact GGC SEG/SSG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     Return False
                 End If
@@ -611,12 +612,13 @@ Public Class LRMasterCarNeo
                 Try
                     lnRow = p_oAppDrvr.Execute(lsSQL, pxeMasterTble)
                     If lnRow <= 0 Then
-                        MsgBox("Unable to Save Transaction!!!" & vbCrLf & _
-                                "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                         p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to Save Transaction!!!" & vbCrLf &
+                                "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                         Return False
                     End If
                 Catch ex As Exception
+                    p_oAppDrvr.RollBackTransaction()
                     Throw ex
                 End Try
 
@@ -638,12 +640,13 @@ Public Class LRMasterCarNeo
                 Try
                     lnRow = p_oAppDrvr.Execute(lsSQL, "Credit_Online_Application")
                     If lnRow <= 0 Then
-                        MsgBox("Unable to Save Transaction!!!" & vbCrLf & _
-                                "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                         p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to Save Transaction!!!" & vbCrLf &
+                                "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                         Return False
                     End If
                 Catch ex As Exception
+                    p_oAppDrvr.RollBackTransaction()
                     Throw ex
                 End Try
 
@@ -657,12 +660,13 @@ Public Class LRMasterCarNeo
                 Try
                     lnRow = p_oAppDrvr.Execute(lsSQL, pxeDetailTble)
                     If lnRow <= 0 Then
-                        MsgBox("Unable to Save Transaction!!!" & vbCrLf & _
-                                "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                         p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to Save Transaction!!!" & vbCrLf &
+                                "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                         Return False
                     End If
                 Catch ex As Exception
+                    p_oAppDrvr.RollBackTransaction()
                     Throw ex
                 End Try
 
@@ -672,9 +676,9 @@ Public Class LRMasterCarNeo
 
                 lnRow = p_oAppDrvr.Execute(lsSQL, "Car_Serial")
                 If lnRow <= 0 Then
-                    MsgBox("Unable to Save Transaction!!!" & vbCrLf & _
-                            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     p_oAppDrvr.RollBackTransaction()
+                    MsgBox("Unable to Save Transaction!!!" & vbCrLf &
+                            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     Return False
                 End If
             End With

@@ -357,7 +357,10 @@ Public Class LRAdjustment
             End If
 
             If lsSQL <> "" Then
-                p_oApp.Execute(lsSQL, p_sMasTable)
+                If p_oApp.Execute(lsSQL, p_sMasTable) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+                    Return False
+                End If
             End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
@@ -396,7 +399,11 @@ Public Class LRAdjustment
 
             p_oDTMstr(0).Item("cPostedxx") = "3"
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
 
@@ -460,7 +467,10 @@ Public Class LRAdjustment
             p_oDTMstr(0).Item("dPostedxx") = p_oApp.getSysDate
 
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")), p_oApp.UserID, p_oApp.SysDate.ToString)
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
 
