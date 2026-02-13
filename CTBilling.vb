@@ -315,76 +315,100 @@ errProc:
                 For Each dRow As DataRow In p_oDTDetl.Rows
                     If dRow.Item("sAcctNmbr") = "" Then Exit For
                     If p_nEditMode = xeEditMode.MODE_ADDNEW Then
-                        lsSQL = "INSERT INTO " & p_sDetTable & " SET" & _
-                                    "  sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) & _
-                                    ", nEntryNox = " & CDbl(lnCtr + 1) & _
-                                    ", sReferNox = " & strParm(dRow.Item("sAcctNmbr")) & _
-                                    ", cBillType = " & strParm(IFNull(dRow.Item("cBillType"), "0")) & _
-                                    ", sDescript = " & strParm(IFNull(dRow.Item("sDEscript"), "")) & _
-                                    ", sRemarks1 = " & strParm(IFNull(dRow.Item("sRemarks1"), "")) & _
-                                    ", sRemarks2 = " & strParm(IFNull(dRow.Item("sRemarks2"), "")) & _
-                                    ", nAmountxx = " & CDbl(dRow.Item("nAmountxx")) & _
-                                    ", nApproved = " & CDbl(dRow.Item("nApproved")) & _
+                        lsSQL = "INSERT INTO " & p_sDetTable & " SET" &
+                                    "  sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) &
+                                    ", nEntryNox = " & CDbl(lnCtr + 1) &
+                                    ", sReferNox = " & strParm(dRow.Item("sAcctNmbr")) &
+                                    ", cBillType = " & strParm(IFNull(dRow.Item("cBillType"), "0")) &
+                                    ", sDescript = " & strParm(IFNull(dRow.Item("sDEscript"), "")) &
+                                    ", sRemarks1 = " & strParm(IFNull(dRow.Item("sRemarks1"), "")) &
+                                    ", sRemarks2 = " & strParm(IFNull(dRow.Item("sRemarks2"), "")) &
+                                    ", nAmountxx = " & CDbl(dRow.Item("nAmountxx")) &
+                                    ", nApproved = " & CDbl(dRow.Item("nApproved")) &
                                     ", dModified = " & dateParm(p_oApp.SysDate)
 
                         lnRow = .Execute(lsSQL, p_sDetTable)
-                        If lnRow = 0 Then GoTo endWithroll
+                        If lnRow <= 0 Then
+                            .RollBackTransaction()
+                            Return False
+                        End If
                     Else
                         If p_oDTMstr.Rows(0)("nEntryNox") < lnCtr + 1 Then
-                            lsSQL = "INSERT INTO " & p_sDetTable & " SET" & _
-                                   "  sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) & _
-                                   ", nEntryNox = " & CDbl(lnCtr + 1) & _
-                                   ", sReferNox = " & strParm(dRow.Item("sAcctNmbr")) & _
-                                   ", cBillType = " & strParm(IFNull(dRow.Item("cBillType"), "0")) & _
-                                   ", sDescript = " & strParm(IFNull(dRow.Item("sDEscript"), "")) & _
-                                   ", sRemarks1 = " & strParm(IFNull(dRow.Item("sRemarks1"), "")) & _
-                                   ", sRemarks2 = " & strParm(IFNull(dRow.Item("sRemarks2"), "")) & _
-                                   ", nAmountxx = " & CDbl(dRow.Item("nAmountxx")) & _
-                                   ", nApproved = " & CDbl(dRow.Item("nApproved")) & _
+                            lsSQL = "INSERT INTO " & p_sDetTable & " SET" &
+                                   "  sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) &
+                                   ", nEntryNox = " & CDbl(lnCtr + 1) &
+                                   ", sReferNox = " & strParm(dRow.Item("sAcctNmbr")) &
+                                   ", cBillType = " & strParm(IFNull(dRow.Item("cBillType"), "0")) &
+                                   ", sDescript = " & strParm(IFNull(dRow.Item("sDEscript"), "")) &
+                                   ", sRemarks1 = " & strParm(IFNull(dRow.Item("sRemarks1"), "")) &
+                                   ", sRemarks2 = " & strParm(IFNull(dRow.Item("sRemarks2"), "")) &
+                                   ", nAmountxx = " & CDbl(dRow.Item("nAmountxx")) &
+                                   ", nApproved = " & CDbl(dRow.Item("nApproved")) &
                                    ", dModified = " & dateParm(p_oApp.SysDate)
 
                         Else
-                            lsSQL = "UPDATE " & p_sDetTable & " SET" & _
-                                        "  sReferNox = " & strParm(dRow.Item("sAcctNmbr")) & _
-                                        ", cBillType = " & strParm(IFNull(dRow.Item("cBillType"), "0")) & _
-                                        ", sDescript = " & strParm(IFNull(dRow.Item("sDEscript"), "")) & _
-                                        ", sRemarks1 = " & strParm(IFNull(dRow.Item("sRemarks1"), "")) & _
-                                        ", sRemarks2 = " & strParm(IFNull(dRow.Item("sRemarks2"), "")) & _
-                                        ", nAmountxx = " & CDbl(dRow.Item("nAmountxx")) & _
-                                        ", nApproved = " & CDbl(dRow.Item("nApproved")) & _
-                                    " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) & _
+                            lsSQL = "UPDATE " & p_sDetTable & " SET" &
+                                        "  sReferNox = " & strParm(dRow.Item("sAcctNmbr")) &
+                                        ", cBillType = " & strParm(IFNull(dRow.Item("cBillType"), "0")) &
+                                        ", sDescript = " & strParm(IFNull(dRow.Item("sDEscript"), "")) &
+                                        ", sRemarks1 = " & strParm(IFNull(dRow.Item("sRemarks1"), "")) &
+                                        ", sRemarks2 = " & strParm(IFNull(dRow.Item("sRemarks2"), "")) &
+                                        ", nAmountxx = " & CDbl(dRow.Item("nAmountxx")) &
+                                        ", nApproved = " & CDbl(dRow.Item("nApproved")) &
+                                    " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) &
                                         " AND nEntryNox = " & CDbl(lnCtr + 1)
 
                         End If
                         lnRow = .Execute(lsSQL, p_sDetTable)
+
+                        If lnRow <= 0 Then
+                            .RollBackTransaction()
+                            Return False
+                        End If
+
                     End If
 
                     lnCtr = lnCtr + 1
                 Next dRow
 
                 If p_oDTMstr.Rows(0)("nEntryNox") <> p_oDTDetl.Rows.Count Then
-                    lsSQL = "DELETE FROM " & p_sDetTable & _
-                                " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) & _
+                    lsSQL = "DELETE FROM " & p_sDetTable &
+                                " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) &
                                     " AND nEntryNox > " & CDbl(p_oDTDetl.Rows.Count)
 
                     lnRow = .Execute(lsSQL, p_sDetTable)
+
+                    If lnRow <= 0 Then
+                        .RollBackTransaction()
+                        Return False
+                    End If
+
                 End If
 
                 p_oDTMstr.Rows(0)("nEntryNox") = p_oDTDetl.Rows.Count
                 If p_nEditMode = xeEditMode.MODE_ADDNEW Then
-                    lsSQL = ADO2SQL(p_oDTMstr, _
-                                    p_sMasTable, , , , _
+                    lsSQL = ADO2SQL(p_oDTMstr,
+                                    p_sMasTable, , , ,
                                     "sCompnyNm»sBranchNm»xAPClient")
 
                     lnRow = .Execute(lsSQL, p_sMasTable)
-                    If lnRow = 0 Then GoTo endWithroll
+                    If lnRow <= 0 Then
+                        .RollBackTransaction()
+                        Return False
+                    End If
                 Else
-                    lsSQL = ADO2SQL(p_oDTMstr, _
-                                    p_sMasTable, _
-                                    "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")), , , _
+                    lsSQL = ADO2SQL(p_oDTMstr,
+                                    p_sMasTable,
+                                    "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")), , ,
                                     "sCompnyNm»sBranchNm»xAPClient")
 
                     lnRow = .Execute(lsSQL, p_sMasTable)
+
+                    If lnRow <= 0 Then
+                        .RollBackTransaction()
+                        Return False
+                    End If
+
                 End If
 
                 .CommitTransaction()
@@ -392,6 +416,7 @@ errProc:
 
             Return True
         Catch ex As Exception
+            p_oApp.RollBackTransaction()
             MsgBox(ex.Message)
         End Try
 
@@ -416,48 +441,60 @@ endwithRoll:
             With p_oApp
                 .BeginTransaction()
 
-                lsSQL = "UPDATE " & p_sMasTable & " SET" & _
-                                    "  cTranStat = " & strParm(xeTranStat.TRANS_POSTED) & _
-                                    ", sRemarks2 = " & strParm(p_oDTMstr.Rows(0).Item("sRemarks2")) & _
-                                    ", nApprTotl = " & CDbl(p_oDTMstr.Rows(0).Item("nApprTotl")) & _
-                                    ", nApprTotl = " & CDbl(p_oDTMstr.Rows(0).Item("nApprTotl")) & _
-                                    ", sApprovBy = " & strParm(p_oApp.UserID) & _
+                lsSQL = "UPDATE " & p_sMasTable & " SET" &
+                                    "  cTranStat = " & strParm(xeTranStat.TRANS_POSTED) &
+                                    ", sRemarks2 = " & strParm(p_oDTMstr.Rows(0).Item("sRemarks2")) &
+                                    ", nApprTotl = " & CDbl(p_oDTMstr.Rows(0).Item("nApprTotl")) &
+                                    ", nApprTotl = " & CDbl(p_oDTMstr.Rows(0).Item("nApprTotl")) &
+                                    ", sApprovBy = " & strParm(p_oApp.UserID) &
                                " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox"))
 
                 lnRow = .Execute(lsSQL, p_sDetTable)
 
+                If lnRow <= 0 Then
+                    .RollBackTransaction()
+                    Return False
+                End If
+
+
                 Dim lnCtr As Integer = 0
                 For Each dRow As DataRow In p_oDTDetl.Rows
                     If p_nEditMode = xeEditMode.MODE_UPDATE Then
-                        lsSQL = "UPDATE " & p_sDetTable & " SET" & _
-                                    "  sRemarks2 = " & strParm(IFNull(dRow.Item("sRemarks2"), "")) & _
-                                    ", nApproved = " & CDbl(dRow.Item("nApproved")) & _
-                                " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) & _
+                        lsSQL = "UPDATE " & p_sDetTable & " SET" &
+                                    "  sRemarks2 = " & strParm(IFNull(dRow.Item("sRemarks2"), "")) &
+                                    ", nApproved = " & CDbl(dRow.Item("nApproved")) &
+                                " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox")) &
                                     " AND nEntryNox = " & CDbl(lnCtr + 1)
 
                     End If
                     lnRow = .Execute(lsSQL, p_sDetTable)
+
+                    If lnRow <= 0 Then
+                        .RollBackTransaction()
+                        Return False
+                    End If
 
                     lnCtr = lnCtr + 1
                 Next dRow
 
                 If bCreateAP Then
                     If Not saveAPTransaction() Then
-                        MsgBox("Unable to save client ledger!!!" & vbCrLf & _
-                                "Please contact GGC SEG/SSG for asssistance!!!", MsgBoxStyle.Critical, "WARNING")
                         .RollBackTransaction()
+                        MsgBox("Unable to save client ledger!!!" & vbCrLf &
+                                "Please contact GGC SEG/SSG for asssistance!!!", MsgBoxStyle.Critical, "WARNING")
                     End If
                 Else
                     If Not saveARTransaction() Then
-                        MsgBox("Unable to save client ledger!!!" & vbCrLf & _
-                                "Please contact GGC SEG/SSG for asssistance!!!", MsgBoxStyle.Critical, "WARNING")
                         .RollBackTransaction()
+                        MsgBox("Unable to save client ledger!!!" & vbCrLf &
+                                "Please contact GGC SEG/SSG for asssistance!!!", MsgBoxStyle.Critical, "WARNING")
                     End If
                 End If
                 .CommitTransaction()
             End With
             Return True
         Catch ex As Exception
+            p_oApp.RollBackTransaction()
             MsgBox(ex.Message())
         End Try
 
@@ -470,8 +507,8 @@ endwithRoll:
         Dim lnRow As Integer
         Dim lsSQL As String
 
-        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or _
-                p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or
+                p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, "WARNING")
@@ -482,23 +519,28 @@ endwithRoll:
             With p_oApp
                 .BeginTransaction()
 
-                lsSQL = "UPDATE " & p_sMasTable & " SET" & _
-                                    "  cTranStat = " & strParm(xeTranStat.TRANS_UNKNOWN) & _
-                                    ", sRecvByxx = " & strParm(p_oApp.UserID) & _
-                                    ", dRecvDate = " & dateParm(p_oApp.SysDate) & _
+                lsSQL = "UPDATE " & p_sMasTable & " SET" &
+                                    "  cTranStat = " & strParm(xeTranStat.TRANS_UNKNOWN) &
+                                    ", sRecvByxx = " & strParm(p_oApp.UserID) &
+                                    ", dRecvDate = " & dateParm(p_oApp.SysDate) &
                                " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox"))
 
                 lnRow = .Execute(lsSQL, p_sDetTable)
+                If lnRow <= 0 Then
+                    .RollBackTransaction()
+                    Return False
+                End If
+
                 .CommitTransaction()
             End With
             Return True
         Catch ex As Exception
+            p_oApp.RollBackTransaction()
             MsgBox(ex.Message)
         End Try
 
-endwithRoll:
-        p_oApp.RollBackTransaction()
         Return False
+
     End Function
 
     Private Function saveAPTransaction() As Boolean
@@ -679,24 +721,39 @@ endwithRoll:
         Dim lnRow As Integer
         Dim lsSQL As String
 
-        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or _
-                p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or
+                p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, "WARNING")
             Return False
         End If
 
-        lsSQL = "UPDATE " & p_sMasTable & " SET" & _
-                    "  cTranStat = " & strParm(xeTranStat.TRANS_CLOSED) & _
+
+        Try
+
+            p_oApp.BeginTransaction()
+
+            lsSQL = "UPDATE " & p_sMasTable & " SET" &
+                    "  cTranStat = " & strParm(xeTranStat.TRANS_CLOSED) &
                 " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox"))
 
-        lnRow = p_oApp.Execute(lsSQL, p_sMasTable)
+            lnRow = p_oApp.Execute(lsSQL, p_sMasTable)
 
-        Return True
+            If (lnRow <= 0) Then
+                p_oApp.RollBackTransaction()
+                Return False
+            End If
 
-endwithRoll:
-        Return False
+            p_oApp.CommitTransaction()
+
+            Return True
+
+        Catch ex As Exception
+            p_oApp.RollBackTransaction()
+            MsgBox(ex.Message)
+            Return False
+        End Try
     End Function
 
     Public Function CancelTransaction() As Boolean
@@ -717,16 +774,29 @@ endwithRoll:
             Return False
         End If
 
-        lsSQL = "UPDATE " & p_sMasTable & " SET" & _
-                    "  cTranStat = " & strParm(xeTranStat.TRANS_CANCELLED) & _
+        Try
+
+            p_oApp.BeginTransaction()
+
+            lsSQL = "UPDATE " & p_sMasTable & " SET" &
+                    "  cTranStat = " & strParm(xeTranStat.TRANS_CANCELLED) &
                 " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox"))
 
-        lnRow = p_oApp.Execute(lsSQL, p_sMasTable)
+            lnRow = p_oApp.Execute(lsSQL, p_sMasTable)
 
-        Return True
+            If (lnRow <= 0) Then
+                p_oApp.RollBackTransaction()
+                Return False
+            End If
 
-endwithRoll:
-        Return False
+            p_oApp.CommitTransaction()
+            Return True
+
+        Catch ex As Exception
+            p_oApp.RollBackTransaction()
+            MsgBox(ex.Message)
+            Return False
+        End Try
     End Function
 
     Public Function PostTransaction() As Boolean
@@ -746,16 +816,27 @@ endwithRoll:
             Return False
         End If
 
-        lsSQL = "UPDATE " & p_sMasTable & " SET" & _
-                    "  cTranStat = " & strParm(xeTranStat.TRANS_POSTED) & _
-                " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox"))
+        Try
+            p_oApp.BeginTransaction()
+            lsSQL = "UPDATE " & p_sMasTable & " SET" &
+                        "  cTranStat = " & strParm(xeTranStat.TRANS_POSTED) &
+                    " WHERE sTransNox = " & strParm(p_oDTMstr.Rows(0).Item("sTransNox"))
 
-        lnRow = p_oApp.Execute(lsSQL, p_sMasTable)
+            lnRow = p_oApp.Execute(lsSQL, p_sMasTable)
 
-        Return True
+            If (lnRow <= 0) Then
+                p_oApp.RollBackTransaction()
+                Return False
+            End If
 
-endwithRoll:
-        Return False
+            p_oApp.CommitTransaction()
+            Return True
+
+        Catch ex As Exception
+            p_oApp.RollBackTransaction()
+            MsgBox(ex.Message)
+            Return False
+        End Try
     End Function
 
     Public Function UpdateTransaction() As Boolean

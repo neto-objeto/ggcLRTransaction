@@ -495,8 +495,8 @@ Public Class LRPayment_PR
                     loChck = New CheckReceived(p_oApp)
                     loChck.Parent = "LRPayment_PR"
                     If Not loChck.LoadByCheckInfo(p_oOthersx.sAcctNoxx, p_oOthersx.sCheckNox, p_oOthersx.sCheckDte) Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
                         MsgBox("Unable to load/create check info!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-                        p_oApp.RollBackTransaction()
                         Return False
                     End If
 
@@ -509,8 +509,8 @@ Public Class LRPayment_PR
                     loChck.Master("nAmountxx") = p_oOthersx.nCheckAmt
 
                     If Not loChck.SaveTransaction Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
                         MsgBox("Unable to save check info!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-                        p_oApp.RollBackTransaction()
                         Return False
                     End If
 
@@ -520,7 +520,10 @@ Public Class LRPayment_PR
 
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, , p_oApp.UserID, p_oApp.SysDate)
             If lsSQL <> "" Then
-                p_oApp.Execute(lsSQL, p_sMasTable, p_sBranchCd)
+                If p_oApp.Execute(lsSQL, p_sMasTable, p_sBranchCd) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+                    Return False
+                End If
             End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
@@ -561,7 +564,10 @@ Public Class LRPayment_PR
 
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED)
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             Call undoChecks()
 
@@ -604,7 +610,10 @@ Public Class LRPayment_PR
             lsSQL = "UPDATE " & p_sMasTable & _
                    " SET cPrintedx = " & strParm(xeLogical.YES) & _
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES
 
@@ -768,9 +777,9 @@ Public Class LRPayment_PR
 
             If loDTChk.Rows.Count = 1 Then
                 If p_sParent = "" Then
+                    p_oApp.RollBackTransaction()
                     MsgBox("Transaction uses a check. Please use CHECK CLEARING to post the transaction...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
                 End If
-                p_oApp.RollBackTransaction()
                 Return False
             Else
                 Dim loTrans As LRTrans
@@ -814,7 +823,6 @@ Public Class LRPayment_PR
             '   added validation, rollback changes if rows affected is <= 0
             If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
-
                 Return False
             End If
 

@@ -583,30 +583,10 @@ Public Class ARPayment
             If p_nEditMode = xeEditMode.MODE_ADDNEW Then
                 p_oDTMstr(0).Item("sTransNox") = GetNextCode(p_sMasTable, "sTransNox", True, p_oApp.Connection, True, p_sBranchCd)
                 If Trim(p_oOthersx.sCheckNox) <> "" Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
 
                     MsgBox("This payment is using a check! Please use the PR Module...", MsgBoxStyle.Critical, "Payment Validation")
                     Return False
-
-                    'Dim lsSQx As String
-                    'lsSQx = "INSERT INTO Check_Payments" & _
-                    '       " SET sTransNox = " & strParm(GetNextCode("Check_Payments", "sTransNox", True, p_oApp.Connection, True, p_sBranchCd)) & _
-                    '          ", dTransact = " & dateParm(p_oDTMstr(0).Item("dTransact")) & _
-                    '          ", sBankIDxx = " & strParm(p_oOthersx.sBankIDxx) & _
-                    '          ", sBranchxx = " & strParm(p_oOthersx.sBranchXX) & _
-                    '          ", sCheckNox = " & strParm(p_oOthersx.sCheckNox) & _
-                    '          ", dCheckDte = " & dateParm(p_oOthersx.sCheckDte) & _
-                    '          ", sPayorIDx = " & strParm(p_oDTMstr(0).Item("sClientID")) & _
-                    '          ", sPayeeIDx = " & strParm(p_oOthersx.sCompnyID) & _
-                    '          ", sAcctCode = " & strParm("") & _
-                    '          ", sReferNox = " & strParm(p_oDTMstr(0).Item("sTransNox")) & _
-                    '          ", nAmountxx = " & p_oDTMstr(0).Item("nAmountxx") & _
-                    '          ", sRemarksx = " & strParm("ARPy»" & p_oOthersx.sBankAcct & "»" & p_oOthersx.sClientNm) & _
-                    '          ", nClearDay = " & 0 & _
-                    '          ", cTranStat = " & strParm("0") & _
-                    '          ", sModified = " & strParm(p_oApp.UserID) & _
-                    '          ", dModified = " & dateParm(p_oApp.getSysDate)
-                    'p_oApp.Execute(lsSQx, "Check_Payments")
-                    'p_oDTMstr(0).Item("cPaymForm") = xeLogical.YES
                 End If
             End If
 
@@ -899,7 +879,10 @@ Public Class ARPayment
             lsSQL = "UPDATE " & p_sMasTable &
                    " SET cPrintedx = " & strParm(xeLogical.YES) &
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
         Catch ex As Exception
@@ -1025,9 +1008,10 @@ Public Class ARPayment
                 " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
 
             ' Execute update
-            p_oApp.Execute(lsSQL,
-                       p_sMasTable,
-                       Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             ' Commit if standalone
             If p_sParent = "" Then p_oApp.CommitTransaction()

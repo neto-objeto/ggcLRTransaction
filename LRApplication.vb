@@ -300,8 +300,8 @@ Public Class LRApplication
             If p_sParent = "" Then p_oApp.BeginTransaction()
 
             If Not p_oClient.SaveClient Then
-                MsgBox("Unable to save client info!", vbOKOnly, p_sMsgHeadr)
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
+                MsgBox("Unable to save client info!", vbOKOnly, p_sMsgHeadr)
                 Return False
             End If
 
@@ -320,8 +320,8 @@ Public Class LRApplication
                         loDt = p_oApp.ExecuteQuery(lsSQL)
 
                         If loDt.Rows.Count = 0 Then
-                            MsgBox("Unable to locate the client's PRE Approved Record!", vbOKOnly, p_sMsgHeadr)
                             If p_sParent = "" Then p_oApp.RollBackTransaction()
+                            MsgBox("Unable to locate the client's PRE Approved Record!", vbOKOnly, p_sMsgHeadr)
                             Return False
                         End If
 
@@ -349,7 +349,10 @@ Public Class LRApplication
             End If
 
             If lsSQL <> "" Then
-                p_oApp.Execute(lsSQL, p_sMasTable)
+                If p_oApp.Execute(lsSQL, p_sMasTable) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+                    Return False
+                End If
             End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
@@ -391,7 +394,10 @@ Public Class LRApplication
 
             p_oDTMstr(0).Item("cTranStat") = "3"
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
-            p_oApp.Execute(lsSQL, p_sMasTable)
+            If p_oApp.Execute(lsSQL, p_sMasTable) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
 
@@ -439,11 +445,17 @@ Public Class LRApplication
             p_oDTMstr(0).Item("cTranStat") = "2"
 
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")), p_oApp.UserID, p_oApp.SysDate.ToString)
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             'kalyptus - 2020.01.20 03:00pm
             'Make sure that a payee is created for this approved loan...
             Call createPayee()
+
+            p_oApp.CommitTransaction()
 
             Return True
         Catch ex As Exception
@@ -558,7 +570,10 @@ Public Class LRApplication
             p_oDTMstr(0).Item("cTranStat") = "4"
 
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")), p_oApp.UserID, p_oApp.SysDate.ToString)
-            p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             'Save the LR Loan Record here...
             If Not loLRMstr.SaveTransaction Then
@@ -580,7 +595,10 @@ Public Class LRApplication
                     ", dCheckDte = " & dateParm(loFrm.CheckDate)
             End If
 
-            p_oApp.Execute(lsSQL, "LR_Master_Release", Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4))
+            If p_oApp.Execute(lsSQL, "LR_Master_Release", Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+                Return False
+            End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
 

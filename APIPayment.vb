@@ -405,90 +405,95 @@ Public Class APIPayment
         Dim loMCPayment As ARPayment
         Dim loMPPayment As ARPayment_MP
 
-        p_oApp.BeginTransaction()
-
         Dim lnCtr As Integer
         Dim lnRow As Integer = 0
         Dim lsSQL As String
 
-        For lnCtr = 0 To ItemCount - 1
-            If p_oDTDetx(lnCtr)("cTranStat") = "0" And Trim(p_oDTDetx(lnCtr)("sORNoxxxx")) <> "" Then
-                If Strings.Left(p_oDTDetx(lnCtr)("sAcctNmbr"), 1).ToLower = "m" Then
-                    loMCPayment = New ARPayment(p_oApp, "2")
-                    loMCPayment.Parent = "APIPayment"
+        Try
+            p_oApp.BeginTransaction()
 
-                    If loMCPayment.NewTransaction() Then
-                        loMCPayment.Master("sAcctNmbr") = p_oDTDetx(lnCtr)("sAcctNmbr")
-                        loMCPayment.Master("sClientID") = p_oDTDetx(lnCtr)("sClientXX")
-                        loMCPayment.Master("dTransact") = p_oDTDetx(lnCtr)("dTransact")
-                        loMCPayment.Master("sReferNox") = p_oDTDetx(lnCtr)("sORNoxxxx")
+            For lnCtr = 0 To ItemCount - 1
+                If p_oDTDetx(lnCtr)("cTranStat") = "0" And Trim(p_oDTDetx(lnCtr)("sORNoxxxx")) <> "" Then
+                    If Strings.Left(p_oDTDetx(lnCtr)("sAcctNmbr"), 1).ToLower = "m" Then
+                        loMCPayment = New ARPayment(p_oApp, "2")
+                        loMCPayment.Parent = "APIPayment"
 
-                        loMCPayment.Master("nAmountxx") = p_oDTDetx(lnCtr)("nAmtPaidx")
-                        loMCPayment.Master("nRebatesx") = p_oDTDetx(lnCtr)("nRebatesx")
-                        loMCPayment.Master("nPenaltyx") = p_oDTDetx(lnCtr)("nPenaltyx")
-                        loMCPayment.Master("sSourceNo") = p_oDTDetx(lnCtr)("sTransNox")
-                        loMCPayment.Master("sSourceCd") = pxeSourceCode
+                        If loMCPayment.NewTransaction() Then
+                            loMCPayment.Master("sAcctNmbr") = p_oDTDetx(lnCtr)("sAcctNmbr")
+                            loMCPayment.Master("sClientID") = p_oDTDetx(lnCtr)("sClientXX")
+                            loMCPayment.Master("dTransact") = p_oDTDetx(lnCtr)("dTransact")
+                            loMCPayment.Master("sReferNox") = p_oDTDetx(lnCtr)("sORNoxxxx")
 
-                        loMCPayment.Master("sRemarksx") = p_oDTDetx(lnCtr)("sRemarksx")
+                            loMCPayment.Master("nAmountxx") = p_oDTDetx(lnCtr)("nAmtPaidx")
+                            loMCPayment.Master("nRebatesx") = p_oDTDetx(lnCtr)("nRebatesx")
+                            loMCPayment.Master("nPenaltyx") = p_oDTDetx(lnCtr)("nPenaltyx")
+                            loMCPayment.Master("sSourceNo") = p_oDTDetx(lnCtr)("sTransNox")
+                            loMCPayment.Master("sSourceCd") = pxeSourceCode
 
-                        If Not loMCPayment.SaveTransaction Then
-                            MsgBox("Unable to save MC Payment Info.", vbInformation, "Warning")
-                            GoTo endwithRoll
+                            loMCPayment.Master("sRemarksx") = p_oDTDetx(lnCtr)("sRemarksx")
+
+                            If Not loMCPayment.SaveTransaction Then
+                                p_oApp.RollBackTransaction()
+                                MsgBox("Unable to save MC Payment Info.", vbInformation, "Warning")
+                                Return False
+                            End If
+                        End If
+                    Else
+                        loMPPayment = New ARPayment_MP(p_oApp, "2")
+                        loMPPayment.Parent = "APIPayment"
+
+                        If loMPPayment.NewTransaction() Then
+                            loMPPayment.Master("sAcctNmbr") = p_oDTDetx(lnCtr)("sAcctNmbr")
+                            loMPPayment.Master("sClientID") = p_oDTDetx(lnCtr)("sClientXX")
+                            loMPPayment.Master("dTransact") = p_oDTDetx(lnCtr)("dTransact")
+                            loMPPayment.Master("sReferNox") = p_oDTDetx(lnCtr)("sORNoxxxx")
+
+                            loMPPayment.Master("nAmountxx") = p_oDTDetx(lnCtr)("nAmtPaidx")
+                            loMPPayment.Master("nRebatesx") = p_oDTDetx(lnCtr)("nRebatesx")
+                            loMPPayment.Master("nPenaltyx") = p_oDTDetx(lnCtr)("nPenaltyx")
+                            loMPPayment.Master("sSourceNo") = p_oDTDetx(lnCtr)("sTransNox")
+                            loMPPayment.Master("sSourceCd") = pxeSourceCode
+
+                            loMPPayment.Master("sRemarksx") = p_oDTDetx(lnCtr)("sRemarksx")
+
+                            If Not loMPPayment.SaveTransaction Then
+                                p_oApp.RollBackTransaction()
+                                MsgBox("Unable to save MC Payment Info.", vbInformation, "Warning")
+                                Return False
+                            End If
                         End If
                     End If
-                Else
-                    loMPPayment = New ARPayment_MP(p_oApp, "2")
-                    loMPPayment.Parent = "APIPayment"
 
-                    If loMPPayment.NewTransaction() Then
-                        loMPPayment.Master("sAcctNmbr") = p_oDTDetx(lnCtr)("sAcctNmbr")
-                        loMPPayment.Master("sClientID") = p_oDTDetx(lnCtr)("sClientXX")
-                        loMPPayment.Master("dTransact") = p_oDTDetx(lnCtr)("dTransact")
-                        loMPPayment.Master("sReferNox") = p_oDTDetx(lnCtr)("sORNoxxxx")
-
-                        loMPPayment.Master("nAmountxx") = p_oDTDetx(lnCtr)("nAmtPaidx")
-                        loMPPayment.Master("nRebatesx") = p_oDTDetx(lnCtr)("nRebatesx")
-                        loMPPayment.Master("nPenaltyx") = p_oDTDetx(lnCtr)("nPenaltyx")
-                        loMPPayment.Master("sSourceNo") = p_oDTDetx(lnCtr)("sTransNox")
-                        loMPPayment.Master("sSourceCd") = pxeSourceCode
-
-                        loMPPayment.Master("sRemarksx") = p_oDTDetx(lnCtr)("sRemarksx")
-
-                        If Not loMPPayment.SaveTransaction Then
-                            MsgBox("Unable to save MC Payment Info.", vbInformation, "Warning")
-                            GoTo endwithRoll
-                        End If
-                    End If
-                End If
-
-                lsSQL = "UPDATE XAPITrans SET" & _
-                            "  sAcctNmbr = " & strParm(p_oDTDetx(lnCtr)("sAcctNmbr")) & _
-                            ", cTranStat = '1'" & _
-                            ", dCaptured = " & datetimeParm(p_oApp.SysDate) & _
+                    lsSQL = "UPDATE XAPITrans SET" &
+                            "  sAcctNmbr = " & strParm(p_oDTDetx(lnCtr)("sAcctNmbr")) &
+                            ", cTranStat = '1'" &
+                            ", dCaptured = " & datetimeParm(p_oApp.SysDate) &
                         " WHERE sTransNox = " & strParm(p_oDTDetx(lnCtr)("sTransNox"))
 
-                If p_oApp.Execute(lsSQL, "XAPITrans") <= 0 Then
-                    MsgBox("Unable to save API Payment Info.", vbInformation, "Warning")
-                    GoTo endwithRoll
+                    If p_oApp.Execute(lsSQL, "XAPITrans") <= 0 Then
+                        p_oApp.RollBackTransaction()
+                        MsgBox("Unable to save API Payment Info.", vbInformation, "Warning")
+                        Return False
+                    End If
+
+                    lnRow += 1
                 End If
+            Next
 
-                lnRow += 1
+            p_oApp.CommitTransaction()
+
+            If lnRow = 0 Then
+                MsgBox("No rows affected.", vbInformation, "Notice")
+            Else
+                MsgBox("OR Released Successfuly.", vbInformation, "Notice")
             End If
-        Next
 
-        p_oApp.CommitTransaction()
-
-        If lnRow = 0 Then
-            MsgBox("No rows affected.", vbInformation, "Notice")
-        Else
-            MsgBox("OR Released Successfuly.", vbInformation, "Notice")
-        End If
-
-        Return True
-endwithRoll:
-        p_oApp.RollBackTransaction()
-        MsgBox("Exception detected.", vbExclamation, "Warning")
-        Return False
+            Return True
+        Catch ex As Exception
+            p_oApp.RollBackTransaction()
+            MsgBox(ex.Message)
+            Return False
+        End Try
     End Function
 
     Private Function getSQ_Account() As String
