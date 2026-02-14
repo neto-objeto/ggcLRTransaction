@@ -482,12 +482,14 @@ endwithRoll:
                         .RollBackTransaction()
                         MsgBox("Unable to save client ledger!!!" & vbCrLf &
                                 "Please contact GGC SEG/SSG for asssistance!!!", MsgBoxStyle.Critical, "WARNING")
+                        Return False
                     End If
                 Else
                     If Not saveARTransaction() Then
                         .RollBackTransaction()
                         MsgBox("Unable to save client ledger!!!" & vbCrLf &
                                 "Please contact GGC SEG/SSG for asssistance!!!", MsgBoxStyle.Critical, "WARNING")
+                        Return False
                     End If
                 End If
                 .CommitTransaction()
@@ -604,7 +606,7 @@ endwithRoll:
 
             lnRow = .Execute(lsSQL, "AP_Client_Master")
             If lnRow <= 0 Then
-                MsgBox("Unable to Update Client Master Info!", vbCritical, "Warning")
+                'MsgBox("Unable to Update Client Master Info!", vbCritical, "Warning")
                 Return False
             End If
 
@@ -622,7 +624,7 @@ endwithRoll:
 
             lnRow = .Execute(lsSQL, "AP_Client_Ledger")
             If lnRow <= 0 Then
-                MsgBox("Unable to Update Client Ledger Info!", vbCritical, "Warning")
+                'MsgBox("Unable to Update Client Ledger Info!", vbCritical, "Warning")
                 Return False
             End If
 
@@ -658,7 +660,7 @@ endwithRoll:
         loDT = p_oApp.ExecuteQuery(lsSQL)
 
         If loDT.Rows.Count = 0 Then
-            MsgBox("Invalid Client ID Detected!!!", vbCritical, "Warning")
+            'MsgBox("Invalid Client ID Detected!!!", vbCritical, "Warning")
             Return False
         End If
 
@@ -691,7 +693,7 @@ endwithRoll:
 
             lnRow = .Execute(lsSQL, "AR_Client_Master")
             If lnRow <= 0 Then
-                MsgBox("Unable to Update Client Master Info!", vbCritical, "Warning")
+                'MsgBox("Unable to Update Client Master Info!", vbCritical, "Warning")
                 Return False
             End If
 
@@ -709,7 +711,7 @@ endwithRoll:
 
             lnRow = .Execute(lsSQL, "AR_Client_Ledger")
             If lnRow <= 0 Then
-                MsgBox("Unable to Update Client Ledger Info!", vbCritical, "Warning")
+                'MsgBox("Unable to Update Client Ledger Info!", vbCritical, "Warning")
                 Return False
             End If
 

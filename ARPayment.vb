@@ -584,7 +584,6 @@ Public Class ARPayment
                 p_oDTMstr(0).Item("sTransNox") = GetNextCode(p_sMasTable, "sTransNox", True, p_oApp.Connection, True, p_sBranchCd)
                 If Trim(p_oOthersx.sCheckNox) <> "" Then
                     If p_sParent = "" Then p_oApp.RollBackTransaction()
-
                     MsgBox("This payment is using a check! Please use the PR Module...", MsgBoxStyle.Critical, "Payment Validation")
                     Return False
                 End If
@@ -598,7 +597,6 @@ Public Class ARPayment
                 '   added validation, rollback changes if rows affected is <= 0
                 If p_oApp.Execute(lsSQL, p_sMasTable) <= 0 Then
                     If p_sParent = "" Then p_oApp.RollBackTransaction()
-
                     Return False
                 End If
             End If

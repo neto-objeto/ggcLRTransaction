@@ -463,8 +463,8 @@ Public Class MCARMaster
             If p_sParent = "" Then p_oApp.BeginTransaction()
 
             If Not p_oClient.SaveClient Then
-                MsgBox("Unable to save client info!", vbOKOnly, p_sMsgHeadr)
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
+                MsgBox("Unable to save client info!", vbOKOnly, p_sMsgHeadr)
                 Return False
             End If
 
@@ -475,11 +475,17 @@ Public Class MCARMaster
                 p_oDTMstr(0).Item("sAcctNmbr") = GetNextCode(p_sMasTable, "sAcctNmbr", True, p_oApp.Connection, True, "M" & Mid(p_sBranchCD, 2))
                 p_oDTMstr(0).Item("sBranchCD") = p_sBranchCD
                 lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, , p_oApp.UserID, p_oApp.SysDate)
-                p_oApp.Execute(lsSQL, p_sMasTable)
+                If p_oApp.Execute(lsSQL, p_sMasTable) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+                    Return False
+                End If
             Else
                 lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sAcctNmbr = " & strParm(p_oDTMstr(0).Item("sAcctNmbr")), p_oApp.UserID, Format(p_oApp.SysDate, "yyyy-MM-dd"), "")
                 If lsSQL <> "" Then
-                    p_oApp.Execute(lsSQL, p_sMasTable)
+                    If p_oApp.Execute(lsSQL, p_sMasTable) <= 0 Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
+                        Return False
+                    End If
                 End If
             End If
 

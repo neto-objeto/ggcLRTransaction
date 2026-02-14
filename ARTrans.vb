@@ -269,7 +269,8 @@ Public Class ARTrans
                                " WHERE sAcctNmbr = " & strParm(p_sAcctNmbr)
                 End If
 
-                Call p_oApp.Execute(lsSQLMstr, p_sMasTable)
+                If p_oApp.Execute(lsSQLMstr, p_sMasTable) <= 0 Then Return False
+
             ElseIf p_oDTMstr(0).Item("nABalance") <= (p_oDTMstr(0).Item("nMonAmort") + 10) Then
                 Dim lnDelayAvg As Single
 
@@ -279,7 +280,7 @@ Public Class ARTrans
                            " SET nDelayAvg = " & lnDelayAvg &
                               ", cRatingxx = " & strParm(getRating(lnDelayAvg, p_oDTMstr(0).Item("cRatingxx"), p_oDTMstr(0).Item("nAcctTerm"))) &
                            " WHERE sAcctNmbr = " & strParm(p_sAcctNmbr)
-                Call p_oApp.Execute(lsSQLMstr, p_sMasTable)
+                If p_oApp.Execute(lsSQLMstr, p_sMasTable) <= 0 Then Return False
             End If
 
             Call UpdateCollectionUnit(p_sAcctNmbr, p_dTransact)

@@ -697,7 +697,10 @@ Public Class CheckReceivedCar
                           ", nAmountxx = " & p_oOthersx.nAmountxx & _
                           ", sModified = " & strParm(p_oApp.UserID) & _
                           ", dModified = " & dateParm(p_oApp.getSysDate)
-                p_oApp.Execute(lsSQL, "Checks_Received_Others")
+                If p_oApp.Execute(lsSQL, "Checks_Received_Others") <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+                    Return False
+                End If
 
                 lsSQL = "UPDATE Checks_Received" & _
                        " SET nAmountxx = nAmountxx + " & p_oOthersx.nAmountxx & _
@@ -705,7 +708,10 @@ Public Class CheckReceivedCar
             End If
 
             If lsSQL <> "" Then
-                p_oApp.Execute(lsSQL, p_sMasTable)
+                If p_oApp.Execute(lsSQL, p_sMasTable) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+                    Return False
+                End If
             End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()

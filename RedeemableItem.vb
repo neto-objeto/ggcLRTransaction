@@ -161,30 +161,35 @@ errProc:
         'On Error GoTo errProc
 
         If Trim(sPromCode) = "" Then
-            GoTo endProc
+            Return False
         End If
 
-        'Retreiving of meal voucher
-        With p_oDTMaster
-            lsSQL = "UPDATE " & _
-                " G_Card_Promo_Master SET " & _
-                " cPreOrder = " & strParm(p_oDTMstr.Rows(0)("cPreOrder")) & _
+        Try
+
+            p_oApp.BeginTransaction()
+
+            'Retreiving of meal voucher
+            With p_oDTMaster
+                lsSQL = "UPDATE " &
+                " G_Card_Promo_Master SET " &
+                " cPreOrder = " & strParm(p_oDTMstr.Rows(0)("cPreOrder")) &
                 " WHERE sPromCode = " & strParm(p_oDTMstr.Rows(0)("sPromCode"))
 
-            lnRow = p_oApp.Execute(lsSQL, "G_Card_Promo_Master")
-        End With
+                lnRow = p_oApp.Execute(lsSQL, "G_Card_Promo_Master")
+            End With
 
-        If lnRow = 0 Then
-            Call initMaster()
-            GoTo endProc
-        End If
+            If lnRow = 0 Then
+                p_oApp.RollBackTransaction()
+                Call initMaster()
+                Return False
+            End If
 
-        Return True
-endProc:
-        lnRow = Nothing
+            Return True
 
-        Return False
-
+        Catch ex As Exception
+            p_oApp.RollBackTransaction()
+            Return False
+        End Try
     End Function
 
     Public Function SearchTransaction( _
