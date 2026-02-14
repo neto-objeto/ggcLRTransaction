@@ -135,28 +135,18 @@ Public Class LRApplicationTransfer
 
             For lnCtr = 0 To ItemCount - 1
                 If p_oDTDetx(lnCtr)("cUpdteRec") = "1" And IFNull(p_oDTDetx(lnCtr)("sBranchCd"), "") <> p_sDestinat Then
-                    lsSQL = "UPDATE MC_Credit_Application SET" & _
-                                "  sBranchCd = " & strParm(p_sDestinat) & _
-                                ", sModified = " & strParm(p_oApp.UserID) & _
-                                ", dModified = " & datetimeParm(p_oApp.SysDate) & _
+                    lsSQL = "UPDATE MC_Credit_Application SET" &
+                                "  sBranchCd = " & strParm(p_sDestinat) &
+                                ", sModified = " & strParm(p_oApp.UserID) &
+                                ", dModified = " & datetimeParm(p_oApp.SysDate) &
                             " WHERE sTransNox = " & strParm(p_oDTDetx(lnCtr)("sTransNox"))
 
                     If p_oApp.Execute(lsSQL, "MC_Credit_Application") <= 0 Then
+                        p_oApp.RollBackTransaction()
                         MsgBox("Unable to update Credit Application Info.", MsgBoxStyle.Critical, pxeModuleName)
-                        GoTo endwithRoll
+                        Return False
                     End If
 
-                    'If p_oDTDetx(lnCtr)("sReferNox") <> "" Then
-                    '    lsSQL = "UPDATE Credit_Online_Application SET" & _
-                    '            "  sBranchCd = " & strParm(p_sDestinat) & _
-                    '            ", sModified = " & strParm(p_oApp.UserID) & _
-                    '        " WHERE sTransNox = " & strParm(p_oDTDetx(lnCtr)("sReferNox"))
-
-                    '    If p_oApp.Execute(lsSQL, "Credit_Online_Application") <= 0 Then
-                    '        MsgBox("Unable to update Credit Online Application Info.", MsgBoxStyle.Critical, pxeModuleName)
-                    '        GoTo endwithRoll
-                    '    End If
-                    'End If
                 End If
             Next
 
@@ -165,12 +155,11 @@ Public Class LRApplicationTransfer
             initRecord()
             Return True
         Catch ex As Exception
+            p_oApp.RollBackTransaction()
             MsgBox(ex.Message, MsgBoxStyle.Critical, pxeModuleName)
+            Return False
         End Try
 
-endwithRoll:
-        p_oApp.RollBackTransaction()
-        Return False
     End Function
 
 

@@ -192,7 +192,7 @@ Public Class LRTrans
 
             'Check for the dLastPaym since we will not allow transactions below the last payment date
             If p_oDTMstr(0).Item("dLastPaym") > p_dTransact Then
-                MsgBox("Transaction date is prior to the last transaction date!", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
+                'MsgBox("Transaction date is prior to the last transaction date!", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
                 Return False
             End If
 
@@ -290,8 +290,8 @@ Public Class LRTrans
                           ", dLastPaym = " & dateParm(p_dTransact) & _
                           ", nLedgerNo = " & (p_oDTMstr(0).Item("nLedgerNo") + 1) & _
                        " WHERE sAcctNmbr = " & strParm(p_sAcctNmbr)
-            Call p_oApp.Execute(lsSQLLdgr, "LR_Ledger")
-            Call p_oApp.Execute(lsSQLMstr, "LR_Master")
+            If p_oApp.Execute(lsSQLLdgr, "LR_Ledger") <= 0 Then Return False
+            If p_oApp.Execute(lsSQLMstr, "LR_Master") <= 0 Then Return False
 
             If p_oDTMstr(0).Item("nABalance") <= 0 Then
                 Dim lnDelayAvg As Single
@@ -315,7 +315,7 @@ Public Class LRTrans
                                " WHERE sAcctNmbr = " & strParm(p_sAcctNmbr)
                 End If
 
-                Call p_oApp.Execute(lsSQLMstr, "LR_Master")
+                If p_oApp.Execute(lsSQLMstr, "LR_Master") <= 0 Then Return False
             ElseIf p_oDTMstr(0).Item("nABalance") <= (p_oDTMstr(0).Item("nMonAmort") + 10) Then
                 Dim lnDelayAvg As Single
 
@@ -325,7 +325,7 @@ Public Class LRTrans
                            " SET nDelayAvg = " & lnDelayAvg & _
                               ", cRatingxx = " & strParm(getRating(lnDelayAvg, "")) & _
                            " WHERE sAcctNmbr = " & strParm(p_sAcctNmbr)
-                Call p_oApp.Execute(lsSQLMstr, "LR_Master")
+                If p_oApp.Execute(lsSQLMstr, "LR_Master") <= 0 Then Return False
             End If
         Catch ex As Exception
             Throw ex

@@ -274,9 +274,9 @@ Public Class LRCarSerialRegistration
                 Try
                     lnRow = p_oAppDrvr.Execute(lsSQL, pxeMasterTble)
                     If lnRow <= 0 Then
-                        MsgBox("Unable to Save Transaction!!!" & vbCrLf & _
-                                "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                         If p_sParent = "" Then p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to Save Transaction!!!" & vbCrLf &
+                                "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                         Return False
                     End If
                 Catch ex As Exception
@@ -285,48 +285,48 @@ Public Class LRCarSerialRegistration
 
                 If .Rows(0)("sClientID") <> "" Then
                     If Not p_oClientID.SaveClient Then
-                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         If p_sParent = "" Then p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         Return False
                     End If
                 End If
 
                 If .Rows(0)("sCoCltID1") <> "" Then
                     If Not p_oCoCltID1.SaveClient Then
-                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         If p_sParent = "" Then p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         Return False
                     End If
                 End If
 
                 If .Rows(0)("sCoCltID2") <> "" Then
                     If Not p_oCoCltID2.SaveClient Then
-                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         If p_sParent = "" Then p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         Return False
                     End If
                 End If
 
                 If .Rows(0)("sRegCltID") <> "" Then
                     If Not p_oRegCltID.SaveClient Then
-                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         If p_sParent = "" Then p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         Return False
                     End If
                 End If
 
                 If .Rows(0)("sRgCltID1") <> "" Then
                     If Not p_oRgCltID1.SaveClient Then
-                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         If p_sParent = "" Then p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         Return False
                     End If
                 End If
 
                 If .Rows(0)("ssRgCltID2") <> "" Then
                     If Not p_oRgCltID2.SaveClient Then
-                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         If p_sParent = "" Then p_oAppDrvr.RollBackTransaction()
+                        MsgBox("Unable to save client info!", vbOKOnly, pxeMODULENAME)
                         Return False
                     End If
                 End If

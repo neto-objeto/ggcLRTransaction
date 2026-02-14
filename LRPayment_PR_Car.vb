@@ -535,8 +535,8 @@ Public Class LRPayment_PR_Car
                     loChck = New CheckReceived(p_oApp)
                     loChck.Parent = "LRPayment_PR"
                     If Not loChck.LoadByCheckInfo(p_oOthersx.sAcctNoxx, p_oOthersx.sCheckNox, p_oOthersx.sCheckDte) Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
                         MsgBox("Unable to load/create check info!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-                        p_oApp.RollBackTransaction()
                         Return False
                     End If
 
@@ -549,8 +549,8 @@ Public Class LRPayment_PR_Car
                     loChck.Master("nAmountxx") = p_oOthersx.nCheckAmt
 
                     If Not loChck.SaveTransaction Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
                         MsgBox("Unable to save check info!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-                        p_oApp.RollBackTransaction()
                         Return False
                     End If
 
@@ -560,7 +560,10 @@ Public Class LRPayment_PR_Car
 
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, , p_oApp.UserID, p_oApp.SysDate)
             If lsSQL <> "" Then
-                p_oApp.Execute(lsSQL, p_sMasTable, p_sBranchCd)
+                If p_oApp.Execute(lsSQL, p_sMasTable, p_sBranchCd) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+                    Return False
+                End If
             End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
@@ -808,9 +811,9 @@ Public Class LRPayment_PR_Car
 
             If loDTChk.Rows.Count = 1 Then
                 If p_sParent = "" Then
+                    p_oApp.RollBackTransaction()
                     MsgBox("Transaction uses a check. Please use CHECK CLEARING to post the transaction...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
                 End If
-                p_oApp.RollBackTransaction()
                 Return False
             Else
                 Dim loTrans As LRTrans

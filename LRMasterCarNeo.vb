@@ -701,7 +701,8 @@ Public Class LRMasterCarNeo
                 p_oAppDrvr.BeginTransaction()
 
                 If Not IsDBNull(.Rows(0)("cAcctStat")) Then
-                    MsgBox("Unable to Cancel Transaction!!!" & vbCrLf & _
+                    p_oAppDrvr.RollBackTransaction()
+                    MsgBox("Unable to Cancel Transaction!!!" & vbCrLf &
                             "Please contact GGC SEG/SSG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     Return False
                 End If
@@ -711,9 +712,9 @@ Public Class LRMasterCarNeo
 
                 lnRow = p_oAppDrvr.Execute(lsSQL, pxeMasterTble)
                 If lnRow <= 0 Then
-                    MsgBox("Unable to Cancel Transaction!!!" & vbCrLf & _
-                            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     p_oAppDrvr.RollBackTransaction()
+                    MsgBox("Unable to Cancel Transaction!!!" & vbCrLf &
+                            "Please contact GGC SSG/SEG for assistance!!!", MsgBoxStyle.Critical, "WARNING")
                     Return False
                 End If
             End With
