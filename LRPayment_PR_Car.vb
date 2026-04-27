@@ -161,14 +161,17 @@ Public Class LRPayment_PR_Car
 
                             Dim lnPrincipl As Decimal = loDta(0).Item("nPrincipl") + +loDta(0).Item("nInsChrge")
                             Dim lnInterest As Decimal = loDta(0).Item("nInterest")
+                            Dim lnRebatesx As Decimal = loDta(0).Item("nRebatesx")
                             Dim lnAcctTerm As Integer = loDta(0).Item("nAcctTerm")
                             Dim lnPaymTotl As Decimal = loDta(0).Item("nPaymTotl")
                             Dim lnIntTotal As Decimal = loDta(0).Item("nIntTotal") + +loDta(0).Item("nRebTotlx")
                             Dim lnTranAmtx As Decimal = p_oOthersx.xTranAmtx
+                            Dim lnRebtAmtx As Decimal = p_oDTMstr(0).Item("nRebatesx")
                             Dim lnPaidAmtx As Decimal = 0
                             Dim lnIntAmtxx As Decimal = 0
 
-                            Call SplitPayment(lnPrincipl, lnInterest, lnAcctTerm, lnPaymTotl, lnIntTotal, lnTranAmtx, lnPaidAmtx, lnIntAmtxx)
+                            'Call SplitPaymentX(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnPaymTotl, lnIntTotal, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
+                            Call SplitPayment(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
 
                             p_oDTMstr(0).Item("nAmountxx") = lnPaidAmtx + p_oDTMstr.Rows(0)("nRebatesx")
                             p_oDTMstr(0).Item("nIntAmtxx") = lnIntAmtxx - p_oDTMstr.Rows(0)("nRebatesx")
@@ -215,14 +218,18 @@ Public Class LRPayment_PR_Car
                             Dim loDta As DataTable = loLR.GetMaster()
                             Dim lnPrincipl As Decimal = loDta(0).Item("nPrincipl") + loDta(0).Item("nInsChrge")
                             Dim lnInterest As Decimal = loDta(0).Item("nInterest")
+                            Dim lnRebatesx As Decimal = loDta(0).Item("nRebatesx")
                             Dim lnAcctTerm As Integer = loDta(0).Item("nAcctTerm")
                             Dim lnPaymTotl As Decimal = loDta(0).Item("nPaymTotl")
                             Dim lnIntTotal As Decimal = loDta(0).Item("nIntTotal") + loDta(0).Item("nRebTotlx")
                             Dim lnTranAmtx As Decimal = p_oOthersx.xTranAmtx
+                            Dim lnRebtAmtx As Decimal = p_oDTMstr(0).Item("nRebatesx")
                             Dim lnPaidAmtx As Decimal = 0
                             Dim lnIntAmtxx As Decimal = 0
 
-                            Call SplitPayment(lnPrincipl, lnInterest, lnAcctTerm, lnPaymTotl, lnIntTotal, lnTranAmtx, lnPaidAmtx, lnIntAmtxx)
+                            'Call SplitPaymentX(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnPaymTotl, lnIntTotal, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
+                            Call SplitPayment(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
+
                             p_oDTMstr(0).Item("nAmountxx") = lnPaidAmtx + p_oDTMstr.Rows(0)("nRebatesx")
                             p_oDTMstr(0).Item("nIntAmtxx") = lnIntAmtxx - p_oDTMstr.Rows(0)("nRebatesx")
                         End If
@@ -1246,109 +1253,132 @@ Public Class LRPayment_PR_Car
         RaiseEvent MasterRetrieved(fnColDsc, p_oOthersx.sCollName)
     End Sub
 
-    Private Sub SplitPayment( _
-            ByVal fnPrincipl As Decimal _
-          , ByVal fnInterest As Decimal _
-          , ByVal fnAcctTerm As Integer _
-          , ByRef fnPaymTotl As Decimal _
-          , ByRef fnIntTotal As Decimal _
-          , ByRef fnTranAmtx As Decimal _
-          , ByRef fnPaidAmtx As Decimal _
-          , ByRef fnIntAmtxx As Decimal)
+    Private Sub SplitPayment(
+    ByVal fnPrincipl As Decimal,
+    ByVal fnInterest As Decimal,
+    ByVal fnAcctTerm As Integer,
+    ByVal fnRebatesx As Decimal,
+    ByRef fnTranAmtx As Decimal,
+    ByRef fnRebtAmtx As Decimal,
+    ByRef fnPaidAmtx As Decimal,
+    ByRef fnIntAmtxx As Decimal)
 
-        'Compute for the monthly amortization for the principal and interest
-        Dim lnPayAmort As Decimal = fnPrincipl / fnAcctTerm
-        Dim lnIntAmort As Decimal = fnInterest / fnAcctTerm
+        ' Compute monthly amortization for principal and interest
+        Dim lnPayAmort As Decimal = Math.Round(fnPrincipl / fnAcctTerm, 2)   ' monthly principal amortization
+        Dim lnIntAmort As Decimal = Math.Round(fnInterest / fnAcctTerm, 2)   ' monthly interest amortization
 
-        'Compute for the number of terms paid for the principal and interest
-        Dim lnPayTermx As Single = fnPaymTotl / lnPayAmort
+        If (fnRebtAmtx > 0) Then
+            lnIntAmort = lnIntAmort - fnRebatesx                         ' reduce interest amortization by rebate
+        End If
+
+        Dim lnMortRate As Decimal = lnPayAmort / (lnPayAmort + lnIntAmort)
+
+        fnPaidAmtx = Math.Round(lnMortRate * fnTranAmtx, 2)
+        fnIntAmtxx = fnTranAmtx - fnPaidAmtx
+    End Sub
+
+    'Allocate payments
+    Private Sub SplitPaymentX(
+    ByVal fnPrincipl As Decimal,
+    ByVal fnInterest As Decimal,
+    ByVal fnAcctTerm As Integer,
+    ByVal fnRebatesx As Decimal,
+    ByVal fnPaymTotl As Decimal,
+    ByVal fnIntTotal As Decimal,
+    ByRef fnTranAmtx As Decimal,
+    ByRef fnRebtAmtx As Decimal,
+    ByRef fnPaidAmtx As Decimal,
+    ByRef fnIntAmtxx As Decimal)
+
+        ' Compute monthly amortization for principal and interest
+        Dim lnPayAmort As Decimal = Math.Round(fnPrincipl / fnAcctTerm, 2)   ' monthly principal amortization
+        Dim lnIntAmort As Decimal = Math.Round(fnInterest / fnAcctTerm, 2)   ' monthly interest amortization
+
+        ' Compute number of terms paid for principal
+        Dim lnPayTermx As Single = Math.Round(fnPaymTotl / lnPayAmort, 1)    ' terms covered by total principal payments
         Dim lnIntTermx As Single
 
+        ' Compute number of terms paid for interest
         If lnIntAmort = 0 Then
-            lnIntTermx = 0
+            lnIntTermx = 0                                                   ' no interest amortization if zero
         Else
-            lnIntTermx = fnIntTotal / lnIntAmort
+            lnIntTermx = Math.Round(fnIntTotal / lnIntAmort, 1)              ' terms covered by total interest payments
+
+            ' Check if rebate applies, adjust interest amortization
+            If (fnRebtAmtx > 0) Then
+                lnIntAmort = lnIntAmort - fnRebatesx                         ' reduce interest amortization by rebate
+            End If
         End If
 
-        If fnTranAmtx <= 0 Then Exit Sub
 
-        If lnPayTermx = lnIntTermx Then
-            'Distribute payment to interest payment
-            If fnTranAmtx < lnIntAmort Then
-                'Get the actual interest deducted
-                lnIntAmort = fnTranAmtx
+        ' Compute excess portion from interest amortization
+        Dim lnIntExcPrcnt As Decimal = lnIntAmort - Int(lnIntAmort)      ' fractional part of interest amortization
+        Dim lnIntExcAmntx As Decimal = fnIntAmtxx * lnIntExcPrcnt        ' excess interest amount
 
-                fnIntAmtxx = fnIntAmtxx + fnTranAmtx
-                fnTranAmtx = 0
+        ' Apply excess interest to payments
+        If (lnIntExcAmntx < fnTranAmtx) Then
+            fnIntAmtxx = fnIntAmtxx + lnIntExcAmntx                      ' add excess to interest paid
+            fnTranAmtx = fnTranAmtx - lnIntExcAmntx                      ' reduce transaction amount
+        Else
+            fnIntAmtxx = fnIntAmtxx + lnIntExcAmntx
+            fnTranAmtx = 0
+        End If
+
+        If (fnTranAmtx > 0) Then
+            ' Compute excess portion from principal amortization
+            Dim lnPayExcPrcnt As Decimal = lnPayAmort - Int(lnPayAmort)      ' fractional part of principal amortization
+            Dim lnPayExcAmntx As Decimal = fnIntAmtxx * lnPayExcPrcnt        ' excess principal amount
+
+            ' Apply excess principal to payments
+            If (lnPayExcAmntx < fnTranAmtx) Then
+                fnPaidAmtx = fnIntAmtxx + lnPayExcAmntx                      ' add excess to principal paid
+                fnTranAmtx = fnTranAmtx - lnPayExcAmntx
             Else
-                fnIntAmtxx = fnIntAmtxx + lnIntAmort
-                fnTranAmtx = fnTranAmtx - lnIntAmort
-            End If
-
-            'Distribute payment to monthly payment
-            If fnTranAmtx < lnPayAmort Then
-                'Get the actual monthly amortization deducted
-                lnPayAmort = fnTranAmtx
-
-                fnPaidAmtx = fnPaidAmtx + fnTranAmtx
+                fnPaidAmtx = fnIntAmtxx + lnPayExcAmntx
                 fnTranAmtx = 0
-            Else
-                fnPaidAmtx = fnPaidAmtx + lnPayAmort
-                fnTranAmtx = fnTranAmtx - lnPayAmort
             End If
-            fnPaymTotl = fnPaymTotl + lnPayAmort
-            fnIntTotal = fnIntTotal + lnIntAmort
+        End If
+
+        ' Case: principal terms < interest terms
+        If lnPayTermx < lnIntTermx Then
+            If lnPayAmort < fnTranAmtx Then
+                fnPaidAmtx += lnPayAmort                                     ' add one full principal amortization
+                fnTranAmtx -= lnPayAmort
+            Else
+                fnPaidAmtx += fnTranAmtx                                     ' add remaining amount to principal
+                fnTranAmtx = 0
+            End If
+            ' Case: interest terms < principal terms
         ElseIf lnPayTermx < lnIntTermx Then
-            'Compute for the amount to be distributed for monthly payment
-            'Dim lnDiff As Decimal = (lnPayTermx - lnIntTermx) * lnPayAmort
-            Dim lnDiff As Decimal = (lnIntTermx - lnPayTermx) * lnPayAmort
-            lnPayAmort = lnDiff
-            If fnTranAmtx < lnDiff Then
-                'Get the actual monthly amortization
-                lnPayAmort = fnTranAmtx
-
-                fnPaidAmtx = fnPaidAmtx + fnTranAmtx
+            If lnIntAmort < fnTranAmtx Then
+                fnIntAmtxx += lnIntAmort                                     ' add one full interest amortization
+                fnTranAmtx -= lnIntAmort
+            Else
+                fnIntAmtxx += fnTranAmtx                                     ' add remaining amount to interest
                 fnTranAmtx = 0
-            Else
-                fnPaidAmtx = fnPaidAmtx + lnDiff
-                fnTranAmtx = fnTranAmtx - lnDiff
-            End If
-            fnPaymTotl = fnPaymTotl + lnPayAmort
-        Else
-            If lnIntAmort > 0 Then
-                'Compute for the amount to be distributed for interest payment
-                Dim lnDiff As Decimal = (lnPayTermx - lnIntTermx) * lnIntAmort
-                lnIntAmort = lnDiff
-                If fnTranAmtx < lnDiff Then
-                    lnIntAmort = fnTranAmtx
-                    fnIntAmtxx = fnIntAmtxx + fnTranAmtx
-                    fnTranAmtx = 0
-                Else
-                    fnIntAmtxx = fnIntAmtxx + lnDiff
-                    fnTranAmtx = fnTranAmtx - lnDiff
-                End If
-                fnIntTotal = fnIntTotal + lnIntAmort
-            Else
-                'Distribute payment to monthly payment
-                If fnTranAmtx < lnPayAmort Then
-                    'Get the actual monthly amortization deducted
-                    lnPayAmort = fnTranAmtx
-
-                    fnPaidAmtx = fnPaidAmtx + fnTranAmtx
-                    fnTranAmtx = 0
-                Else
-                    fnPaidAmtx = fnPaidAmtx + lnPayAmort
-                    fnTranAmtx = fnTranAmtx - lnPayAmort
-                End If
             End If
         End If
 
-            'Execute a recursive function if fnTranAmtx is not yet 0
-            If fnTranAmtx > 0 Then
-            If fnInterest > 0 Then
-                SplitPayment(fnPrincipl, fnInterest, fnAcctTerm, fnPaymTotl, fnIntTotal, fnTranAmtx, fnPaidAmtx, fnIntAmtxx)
+        ' Loop until transaction amount is fully allocated
+        While fnTranAmtx > 0
+            ' Allocate to principal amortization
+            If lnPayAmort < fnTranAmtx Then
+                fnPaidAmtx += lnPayAmort                                     ' add one full principal amortization
+                fnTranAmtx -= lnPayAmort
+            Else
+                fnPaidAmtx += fnTranAmtx                                     ' add remaining amount to principal
+                fnTranAmtx = 0
             End If
-        End If
+
+            ' Allocate to interest amortization
+            If lnIntAmort < fnTranAmtx Then
+                fnIntAmtxx += lnIntAmort                                     ' add one full interest amortization
+                fnTranAmtx -= lnIntAmort
+            Else
+                fnIntAmtxx += fnTranAmtx                                     ' add remaining amount to interest
+                fnTranAmtx = 0
+            End If
+        End While
     End Sub
 
     Public Sub SearchBranch(ByVal fsValue As String _

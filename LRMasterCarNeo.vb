@@ -22,6 +22,8 @@
 '
 '   Mac 2020.03.09
 '       Added Try/Catch statement on insert/update statements
+'   kalyptus 2026.03.09
+'       Update computation of interest, amortization and initial balance to include rebates
 '€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€
 Imports ggcAppDriver
 Imports ggcClient
@@ -174,15 +176,45 @@ Public Class LRMasterCarNeo
 
                         'If principal/interest rate/term then compute for amortization
                         If p_oDTMaster(0).Item("nAcctTerm") > 0 Then
-                            'Set the principal as the initial balance
-                            p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl")
 
-                            p_oDTMaster(0).Item("nInterest") = (p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * p_oDTMaster(0).Item("nAcctTerm") * p_oDTMaster(0).Item("nIntRatex") / 100
+                            'Compute for the monthly interest: total interst + rebate
+                            Dim loMonthInt As Double = (p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * (p_oDTMaster(0).Item("nIntRatex") / 100) + p_oDTMaster(0).Item("nRebatesx")
+                            'Compute for the monthly amortization of the principal
+                            Dim loMonthPxx As Double = Math.Round(p_oDTMaster(0).Item("nPrincipl") / p_oDTMaster(0).Item("nAcctTerm"), 2)
+                            'Compute for the Montly Amortization (Monthly Principal + Montly Interest)    
+                            Dim loMonthTot As Double = Math.Ceiling(loMonthPxx + loMonthInt)
+                            'Compute for the total interest (rounded up from the principal are added to the interest)
+                            Dim loTotalInt As Double = (loMonthTot - loMonthPxx)
+                            loTotalInt *= p_oDTMaster(0).Item("nAcctTerm")
+
+                            p_oDTMaster(0).Item("nInterest") = loTotalInt
+
+                            p_oDTMaster(0).Item("nMonAmort") = loMonthPxx
+
+                            p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")
+
                             RaiseEvent MasterRetrieved(6, p_oDTMaster(0).Item("nInterest"))
-
-                            'p_oDTMaster(0).Item("nMonAmort") = Math.Round(((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) + p_oDTMaster(0).Item("nInterest")) / p_oDTMaster(0).Item("nAcctTerm"), 2)
-                            p_oDTMaster(0).Item("nMonAmort") = (Math.Round((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) / p_oDTMaster(0).Item("nAcctTerm"), 2)) + p_oDTMaster(0).Item("nRebatesx")
                             RaiseEvent MasterRetrieved(13, p_oDTMaster(0).Item("nMonAmort"))
+                            RaiseEvent MasterRetrieved(23, p_oDTMaster(0).Item("nABalance"))
+
+                            ''kalyptus - 2026.03.09 02.15pm
+                            ''Add rebates on interest computation
+                            ''p_oDTMaster(0).Item("nInterest") = (p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * p_oDTMaster(0).Item("nAcctTerm") * p_oDTMaster(0).Item("nIntRatex") / 100
+                            'p_oDTMaster(0).Item("nInterest") = (((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * p_oDTMaster(0).Item("nIntRatex") / 100) + p_oDTMaster(0).Item("nRebatesx")) * p_oDTMaster(0).Item("nAcctTerm")
+                            'RaiseEvent MasterRetrieved(6, p_oDTMaster(0).Item("nInterest"))
+
+                            ''p_oDTMaster(0).Item("nMonAmort") = Math.Round(((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) + p_oDTMaster(0).Item("nInterest")) / p_oDTMaster(0).Item("nAcctTerm"), 2)
+                            ''kalyptus - 2026.03.09 02.15pm
+                            ''remove rebates on amortization computation
+                            ''p_oDTMaster(0).Item("nMonAmort") = (Math.Round((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) / p_oDTMaster(0).Item("nAcctTerm"), 2)) + p_oDTMaster(0).Item("nRebatesx")
+                            'p_oDTMaster(0).Item("nMonAmort") = (Math.Round((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) / p_oDTMaster(0).Item("nAcctTerm"), 2))
+                            'RaiseEvent MasterRetrieved(13, p_oDTMaster(0).Item("nMonAmort"))
+
+                            ''Set the principal as the initial balance
+                            ''kalyptus - 2026.03.09 04.11pm
+                            ''include interest and insurance on the initial balance computation
+                            ''p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInterest")
+                            'p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge") + p_oDTMaster(0).Item("nInterest")
                         End If
 
                         RaiseEvent MasterRetrieved(22, p_oDTMaster(0).Item("nIntTotal"))
@@ -191,15 +223,48 @@ Public Class LRMasterCarNeo
                             p_oDTMaster(0).Item(Index) = Convert.ToSingle(Value)
                         End If
 
-                        p_oDTMaster(0).Item("nInterest") = (p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * p_oDTMaster(0).Item("nAcctTerm") * p_oDTMaster(0).Item("nIntRatex") / 100
-                        p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl")
-                        p_oDTMaster(0).Item("dDueDatex") = DateAdd(DateInterval.Month, p_oDTMaster(0).Item("nAcctTerm") - 1, p_oDTMaster(0).Item("dFirstPay"))
-                        p_oDTMaster(0).Item("nMonAmort") = (Math.Round((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) / p_oDTMaster(0).Item("nAcctTerm"), 2)) + p_oDTMaster(0).Item("nRebatesx")
+                        'Compute for the monthly interest: total interst + rebate
+                        Dim loMonthInt As Double = (p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * (p_oDTMaster(0).Item("nIntRatex") / 100) + p_oDTMaster(0).Item("nRebatesx")
+                        'Compute for the monthly amortization of the principal
+                        Dim loMonthPxx As Double = Math.Round(p_oDTMaster(0).Item("nPrincipl") / p_oDTMaster(0).Item("nAcctTerm"), 2)
+                        'Compute for the Montly Amortization (Monthly Principal + Montly Interest)    
+                        Dim loMonthTot As Double = Math.Ceiling(loMonthPxx + loMonthInt)
+                        'Compute for the total interest (rounded up from the principal are added to the interest)
+                        Dim loTotalInt As Double = (loMonthTot - loMonthPxx) * p_oDTMaster(0).Item("nAcctTerm")
 
-                        RaiseEvent MasterRetrieved(13, p_oDTMaster(0).Item("nMonAmort"))
+                        p_oDTMaster(0).Item("nInterest") = loTotalInt
+
+                        p_oDTMaster(0).Item("nMonAmort") = loMonthPxx
+
+                        p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")
+
+                        p_oDTMaster(0).Item("dDueDatex") = DateAdd(DateInterval.Month, p_oDTMaster(0).Item("nAcctTerm") - 1, p_oDTMaster(0).Item("dFirstPay"))
+
                         RaiseEvent MasterRetrieved(6, p_oDTMaster(0).Item("nInterest"))
+                        RaiseEvent MasterRetrieved(13, p_oDTMaster(0).Item("nMonAmort"))
+                        RaiseEvent MasterRetrieved(23, p_oDTMaster(0).Item("nABalance"))
                         RaiseEvent MasterRetrieved(12, p_oDTMaster(0).Item("dDueDatex"))
-                        RaiseEvent MasterRetrieved(22, p_oDTMaster(0).Item("nIntTotal"))
+
+                        ''kalyptus - 2026.03.09 02.15pm
+                        ''Add rebates on interest computation
+                        ''p_oDTMaster(0).Item("nInterest") = (p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * p_oDTMaster(0).Item("nAcctTerm") * p_oDTMaster(0).Item("nIntRatex") / 100
+                        'p_oDTMaster(0).Item("nInterest") = (((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * p_oDTMaster(0).Item("nIntRatex") / 100) + p_oDTMaster(0).Item("nRebatesx")) * p_oDTMaster(0).Item("nAcctTerm")
+
+                        'p_oDTMaster(0).Item("dDueDatex") = DateAdd(DateInterval.Month, p_oDTMaster(0).Item("nAcctTerm") - 1, p_oDTMaster(0).Item("dFirstPay"))
+                        ''kalyptus - 2026.03.09 02.15pm
+                        ''remove rebates on amortization computation
+                        ''p_oDTMaster(0).Item("nMonAmort") = (Math.Round((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) / p_oDTMaster(0).Item("nAcctTerm"), 2)) + p_oDTMaster(0).Item("nRebatesx")
+                        'p_oDTMaster(0).Item("nMonAmort") = (Math.Round((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) / p_oDTMaster(0).Item("nAcctTerm"), 2))
+
+                        ''kalyptus - 2026.03.09 04.11pm
+                        ''include interest and insurance on the initial balance computation
+                        ''p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInterest")
+                        'p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge") + p_oDTMaster(0).Item("nInterest")
+
+                        'RaiseEvent MasterRetrieved(13, p_oDTMaster(0).Item("nMonAmort"))
+                        'RaiseEvent MasterRetrieved(6, p_oDTMaster(0).Item("nInterest"))
+                        'RaiseEvent MasterRetrieved(12, p_oDTMaster(0).Item("dDueDatex"))
+                        'RaiseEvent MasterRetrieved(22, p_oDTMaster(0).Item("nIntTotal"))
                     Case "dduedatex"
                     Case "ninterest"
                     Case "cloantype"
@@ -209,13 +274,42 @@ Public Class LRMasterCarNeo
                             p_oDTMaster(0).Item(Index) = Convert.ToSingle(Value)
                         End If
 
-                        p_oDTMaster(0).Item("nInterest") = (p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * p_oDTMaster(0).Item("nAcctTerm") * p_oDTMaster(0).Item("nIntRatex") / 100
-                        p_oDTMaster(0).Item("nMonAmort") = (Math.Round((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) / p_oDTMaster(0).Item("nAcctTerm"), 2)) + p_oDTMaster(0).Item("nRebatesx")
-                        'p_oDTMaster(0).Item("nMonAmort") = Math.Round(((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) + p_oDTMaster(0).Item("nInterest")) / p_oDTMaster(0).Item("nAcctTerm"), 2)
+                        'Compute for the monthly interest: total interst + rebate
+                        Dim loMonthInt As Double = (p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * (p_oDTMaster(0).Item("nIntRatex") / 100) + p_oDTMaster(0).Item("nRebatesx")
+                        'Compute for the monthly amortization of the principal
+                        Dim loMonthPxx As Double = Math.Round(p_oDTMaster(0).Item("nPrincipl") / p_oDTMaster(0).Item("nAcctTerm"), 2)
+                        'Compute for the Montly Amortization (Monthly Principal + Montly Interest)    
+                        Dim loMonthTot As Double = Math.Ceiling(loMonthPxx + loMonthInt)
+                        'Compute for the total interest (rounded up from the principal are added to the interest)
+                        Dim loTotalInt As Double = (loMonthTot - loMonthPxx) * p_oDTMaster(0).Item("nAcctTerm")
 
-                        RaiseEvent MasterRetrieved(13, p_oDTMaster(0).Item("nMonAmort"))
+                        p_oDTMaster(0).Item("nInterest") = loTotalInt
+
+                        p_oDTMaster(0).Item("nMonAmort") = loMonthPxx
+
+                        p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")
+
                         RaiseEvent MasterRetrieved(6, p_oDTMaster(0).Item("nInterest"))
-                        RaiseEvent MasterRetrieved(22, p_oDTMaster(0).Item("nIntTotal"))
+                        RaiseEvent MasterRetrieved(13, p_oDTMaster(0).Item("nMonAmort"))
+                        RaiseEvent MasterRetrieved(23, p_oDTMaster(0).Item("nABalance"))
+
+                        ''kalyptus - 2026.03.09 02.15pm
+                        ''Add rebates on interest computation
+                        ''p_oDTMaster(0).Item("nInterest") = (p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * p_oDTMaster(0).Item("nAcctTerm") * p_oDTMaster(0).Item("nIntRatex") / 100
+                        'p_oDTMaster(0).Item("nInterest") = (((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) * p_oDTMaster(0).Item("nIntRatex") / 100) + p_oDTMaster(0).Item("nRebatesx")) * p_oDTMaster(0).Item("nAcctTerm")
+                        ''kalyptus - 2026.03.09 02.15pm
+                        ''remove rebates on amortization computation
+                        ''p_oDTMaster(0).Item("nMonAmort") = (Math.Round((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) / p_oDTMaster(0).Item("nAcctTerm"), 2)) + p_oDTMaster(0).Item("nRebatesx")
+                        'p_oDTMaster(0).Item("nMonAmort") = (Math.Round((p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge")) / p_oDTMaster(0).Item("nAcctTerm"), 2))
+
+                        ''kalyptus - 2026.03.09 04.11pm
+                        ''include interest and insurance on the initial balance computation
+                        ''p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInterest")
+                        'p_oDTMaster(0).Item("nABalance") = p_oDTMaster(0).Item("nPrincipl") + p_oDTMaster(0).Item("nInsChrge") + p_oDTMaster(0).Item("nInterest")
+                        ''c3
+                        'RaiseEvent MasterRetrieved(13, p_oDTMaster(0).Item("nMonAmort"))
+                        'RaiseEvent MasterRetrieved(6, p_oDTMaster(0).Item("nInterest"))
+                        'RaiseEvent MasterRetrieved(22, p_oDTMaster(0).Item("nIntTotal"))
                     Case "nsrvcchrg"
                     Case "sapplicno"
                     Case Else
@@ -415,14 +509,14 @@ Public Class LRMasterCarNeo
             With p_oDTMaster
                 p_oAppDrvr.BeginTransaction()
 
-                Call SplitPayment(.Rows(0)("nPrincipl") _
-                                  , .Rows(0)("nInterest") _
-                                  , .Rows(0)("nAcctTerm") _
-                                  , .Rows(0)("nPaymTotl") _
-                                  , .Rows(0)("nIntTotal") _
-                                  , 0 _
-                                  , 0 _
-                                  , 0)
+                'Call SplitPayment(.Rows(0)("nPrincipl") _
+                '                  , .Rows(0)("nInterest") _
+                '                  , .Rows(0)("nAcctTerm") _
+                '                  , .Rows(0)("nPaymTotl") _
+                '                  , .Rows(0)("nIntTotal") _
+                '                  , 0 _
+                '                  , 0 _
+                '                  , 0)
 
                 lsSQL = "INSERT INTO " & pxeMasterTble & " SET" & _
                             "  sAcctNmbr = " & strParm(.Rows(0)("sAcctNmbr")) & _
@@ -780,6 +874,7 @@ Public Class LRMasterCarNeo
             lsFilter = "CONCAT(c.sLastName, ', ', c.sFrstName, ' ', c.sMiddName) LIKE " & strParm("%" & fsValue & "%")
         End If
 
+        lsCondition = ""
         If p_nAcctStat <> -1 Then
             If p_nAcctStat > -1 Then
                 lsCondition = "("
@@ -794,6 +889,7 @@ Public Class LRMasterCarNeo
         End If
 
         lsSQL = AddCondition(lsSQL, lsCondition)
+        'lsSQL = AddCondition(lsSQL, lsFilter)
 
         Debug.Print(lsSQL)
 
@@ -1099,88 +1195,90 @@ Public Class LRMasterCarNeo
         RaiseEvent MasterRetrieved(3, p_oDTMaster.Rows(0)("xAddressx"))
     End Sub
 
-    Private Sub SplitPayment( _
-            ByVal fnPrincipl As Decimal _
-          , ByVal fnInterest As Decimal _
-          , ByVal fnAcctTerm As Integer _
-          , ByRef fnPaymTotl As Decimal _
-          , ByRef fnIntTotal As Decimal _
-          , ByRef fnTranAmtx As Decimal _
-          , ByRef fnPaidAmtx As Decimal _
-          , ByRef fnIntAmtxx As Decimal)
+    'Private Sub SplitPayment( _
+    '        ByVal fnPrincipl As Decimal _
+    '      , ByVal fnInterest As Decimal _
+    '      , ByVal fnAcctTerm As Integer _
+    '      , ByRef fnPaymTotl As Decimal _
+    '      , ByRef fnIntTotal As Decimal _
+    '      , ByRef fnTranAmtx As Decimal _
+    '      , ByRef fnPaidAmtx As Decimal _
+    '      , ByRef fnIntAmtxx As Decimal)
 
-        'Compute for the monthly amortization for the principal and interest
-        Dim lnPayAmort As Decimal = fnPrincipl / fnAcctTerm
-        Dim lnIntAmort As Decimal = fnInterest / fnAcctTerm
+    '    'Compute for the monthly amortization for the principal and interest
+    '    Dim lnPayAmort As Decimal = fnPrincipl / fnAcctTerm
+    '    Dim lnIntAmort As Decimal = fnInterest / fnAcctTerm
 
-        'Compute for the number of terms paid for the principal and interest
-        Dim lnPayTermx As Single = fnPaymTotl / lnPayAmort
-        Dim lnIntTermx As Single = fnIntTotal / lnIntAmort
+    '    'Compute for the number of terms paid for the principal and interest
+    '    Dim lnPayTermx As Single = fnPaymTotl / lnPayAmort
+    '    Dim lnIntTermx As Single = fnIntTotal / lnIntAmort
 
-        If fnTranAmtx <= 0 Then Exit Sub
+    '    If fnTranAmtx <= 0 Then Exit Sub
 
-        If lnPayTermx = lnIntTermx Then
-            'Distribute payment to interest payment
-            If fnTranAmtx < lnIntAmort Then
-                'Get the actual interest deducted
-                lnIntAmort = fnTranAmtx
+    '    If lnPayTermx = lnIntTermx Then
+    '        'Distribute payment to interest payment
+    '        If fnTranAmtx < lnIntAmort Then
+    '            'Get the actual interest deducted
+    '            lnIntAmort = fnTranAmtx
 
-                fnIntAmtxx = fnIntAmtxx + fnTranAmtx
-                fnTranAmtx = 0
-            Else
-                fnIntAmtxx = fnIntAmtxx + lnIntAmort
-                fnTranAmtx = fnTranAmtx - lnIntAmort
-            End If
+    '            fnIntAmtxx = fnIntAmtxx + fnTranAmtx
+    '            fnTranAmtx = 0
+    '        Else
+    '            fnIntAmtxx = fnIntAmtxx + lnIntAmort
+    '            fnTranAmtx = fnTranAmtx - lnIntAmort
+    '        End If
 
-            'Distribute payment to monthly payment
-            If fnTranAmtx < lnPayAmort Then
-                'Get the actual monthly amortization deducted
-                lnPayAmort = fnTranAmtx
+    '        'Distribute payment to monthly payment
+    '        If fnTranAmtx < lnPayAmort Then
+    '            'Get the actual monthly amortization deducted
+    '            lnPayAmort = fnTranAmtx
 
-                fnPaidAmtx = fnPaidAmtx + fnTranAmtx
-                fnTranAmtx = 0
-            Else
-                fnPaidAmtx = fnPaidAmtx + lnPayAmort
-                fnTranAmtx = fnTranAmtx - lnPayAmort
-            End If
-            fnPaymTotl = fnPaymTotl + lnPayAmort
-            fnIntTotal = fnIntTotal + lnIntAmort
-        ElseIf lnPayTermx < lnIntTermx Then
-            'Compute for the amount to be distributed for monthly payment
-            'Dim lnDiff As Decimal = (lnPayTermx - lnIntTermx) * lnPayAmort
-            Dim lnDiff As Decimal = (lnIntTermx - lnPayTermx) * lnPayAmort
-            lnPayAmort = lnDiff
-            If fnTranAmtx < lnDiff Then
-                'Get the actual monthly amortization
-                lnPayAmort = fnTranAmtx
+    '            fnPaidAmtx = fnPaidAmtx + fnTranAmtx
+    '            fnTranAmtx = 0
+    '        Else
+    '            fnPaidAmtx = fnPaidAmtx + lnPayAmort
+    '            fnTranAmtx = fnTranAmtx - lnPayAmort
+    '        End If
+    '        fnPaymTotl = fnPaymTotl + lnPayAmort
+    '        fnIntTotal = fnIntTotal + lnIntAmort
+    '    ElseIf lnPayTermx < lnIntTermx Then
+    '        'Compute for the amount to be distributed for monthly payment
+    '        'Dim lnDiff As Decimal = (lnPayTermx - lnIntTermx) * lnPayAmort
+    '        Dim lnDiff As Decimal = (lnIntTermx - lnPayTermx) * lnPayAmort
+    '        lnPayAmort = lnDiff
+    '        If fnTranAmtx < lnDiff Then
+    '            'Get the actual monthly amortization
+    '            lnPayAmort = fnTranAmtx
 
-                fnPaidAmtx = fnPaidAmtx + fnTranAmtx
-                fnTranAmtx = 0
-            Else
-                fnPaidAmtx = fnPaidAmtx + lnDiff
-                fnTranAmtx = fnTranAmtx - lnDiff
-            End If
-            fnPaymTotl = fnPaymTotl + lnPayAmort
-        Else
-            'Compute for the amount to be distributed for interest payment
-            Dim lnDiff As Decimal = (lnPayTermx - lnIntTermx) * lnIntAmort
-            lnIntAmort = lnDiff
-            If fnTranAmtx < lnDiff Then
-                lnIntAmort = fnTranAmtx
-                fnIntAmtxx = fnIntAmtxx + fnTranAmtx
-                fnTranAmtx = 0
-            Else
-                fnIntAmtxx = fnIntAmtxx + lnDiff
-                fnTranAmtx = fnTranAmtx - lnDiff
-            End If
-            fnIntTotal = fnIntTotal + lnIntAmort
-        End If
+    '            fnPaidAmtx = fnPaidAmtx + fnTranAmtx
+    '            fnTranAmtx = 0
+    '        Else
+    '            fnPaidAmtx = fnPaidAmtx + lnDiff
+    '            fnTranAmtx = fnTranAmtx - lnDiff
+    '        End If
+    '        fnPaymTotl = fnPaymTotl + lnPayAmort
+    '    Else
+    '        'Compute for the amount to be distributed for interest payment
+    '        Dim lnDiff As Decimal = (lnPayTermx - lnIntTermx) * lnIntAmort
+    '        lnIntAmort = lnDiff
+    '        If fnTranAmtx < lnDiff Then
+    '            lnIntAmort = fnTranAmtx
+    '            fnIntAmtxx = fnIntAmtxx + fnTranAmtx
+    '            fnTranAmtx = 0
+    '        Else
+    '            fnIntAmtxx = fnIntAmtxx + lnDiff
+    '            fnTranAmtx = fnTranAmtx - lnDiff
+    '        End If
+    '        fnIntTotal = fnIntTotal + lnIntAmort
+    '    End If
 
-        'Execute a recursive function if fnTranAmtx is not yet 0
-        If fnTranAmtx > 0 Then
-            SplitPayment(fnPrincipl, fnInterest, fnAcctTerm, fnPaymTotl, fnIntTotal, fnTranAmtx, fnPaidAmtx, fnIntAmtxx)
-        End If
-    End Sub
+    '    'Execute a recursive function if fnTranAmtx is not yet 0
+    '    If fnTranAmtx > 0 Then
+    '        SplitPayment(fnPrincipl, fnInterest, fnAcctTerm, fnPaymTotl, fnIntTotal, fnTranAmtx, fnPaidAmtx, fnIntAmtxx)
+    '    End If
+    'End Sub
+
+
 
     Private Function getSerial(ByVal sValue As String, ByVal bSearch As Boolean, ByVal bByCode As Boolean) As Boolean
         Dim lsCondition As String

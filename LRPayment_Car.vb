@@ -27,6 +27,7 @@ Imports MySql.Data.MySqlClient
 Imports ADODB
 Imports ggcAppDriver
 Imports System.Drawing
+Imports Microsoft.VisualBasic.Devices
 
 Public Class LRPayment_Car
     Private p_oApp As GRider
@@ -43,7 +44,7 @@ Public Class LRPayment_Car
 
     Private p_cLoanType As String
 
-    Public Event MasterRetrieved(ByVal Index As Integer, _
+    Public Event MasterRetrieved(ByVal Index As Integer,
                                   ByVal Value As Object)
 
     Public ReadOnly Property AppDriver() As ggcAppDriver.GRider
@@ -149,14 +150,18 @@ Public Class LRPayment_Car
                             Dim loDta As DataTable = loLR.GetMaster()
                             Dim lnPrincipl As Decimal = loDta(0).Item("nPrincipl") + loDta(0).Item("nInsChrge")
                             Dim lnInterest As Decimal = loDta(0).Item("nInterest")
+                            Dim lnRebatesx As Decimal = loDta(0).Item("nRebatesx")
                             Dim lnAcctTerm As Integer = loDta(0).Item("nAcctTerm")
                             Dim lnPaymTotl As Decimal = loDta(0).Item("nPaymTotl")
                             Dim lnIntTotal As Decimal = loDta(0).Item("nIntTotal") + loDta(0).Item("nRebTotlx")
                             Dim lnTranAmtx As Decimal = p_oOthersx.xTranAmtx
+                            Dim lnRebtAmtx As Decimal = p_oDTMstr(0).Item("nRebatesx")
+
                             Dim lnPaidAmtx As Decimal = 0
                             Dim lnIntAmtxx As Decimal = 0
 
-                            Call SplitPayment(lnPrincipl, lnInterest, lnAcctTerm, lnPaymTotl, lnIntTotal, lnTranAmtx, lnPaidAmtx, lnIntAmtxx)
+                            'Call SplitPaymentX(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnPaymTotl, lnIntTotal, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
+                            Call SplitPayment(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
 
                             p_oDTMstr(0).Item("nAmountxx") = lnPaidAmtx + p_oDTMstr.Rows(0)("nRebatesx")
                             p_oDTMstr(0).Item("nIntAmtxx") = lnIntAmtxx - p_oDTMstr.Rows(0)("nRebatesx")
@@ -194,14 +199,17 @@ Public Class LRPayment_Car
                             Dim loDta As DataTable = loLR.GetMaster()
                             Dim lnPrincipl As Decimal = loDta(0).Item("nPrincipl") + loDta(0).Item("nInsChrge")
                             Dim lnInterest As Decimal = loDta(0).Item("nInterest")
+                            Dim lnRebatesx As Decimal = loDta(0).Item("nRebatesx")
                             Dim lnAcctTerm As Integer = loDta(0).Item("nAcctTerm")
                             Dim lnPaymTotl As Decimal = loDta(0).Item("nPaymTotl")
                             Dim lnIntTotal As Decimal = loDta(0).Item("nIntTotal") + loDta(0).Item("nRebTotlx")
                             Dim lnTranAmtx As Decimal = p_oOthersx.xTranAmtx
+                            Dim lnRebtAmtx As Decimal = p_oDTMstr(0).Item("nRebatesx")
                             Dim lnPaidAmtx As Decimal = 0
                             Dim lnIntAmtxx As Decimal = 0
 
-                            Call SplitPayment(lnPrincipl, lnInterest, lnAcctTerm, lnPaymTotl, lnIntTotal, lnTranAmtx, lnPaidAmtx, lnIntAmtxx)
+                            'Call SplitPaymentX(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnPaymTotl, lnIntTotal, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
+                            Call SplitPayment(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
                             p_oDTMstr(0).Item("nAmountxx") = lnPaidAmtx + p_oDTMstr.Rows(0)("nRebatesx")
                             p_oDTMstr(0).Item("nIntAmtxx") = lnIntAmtxx - p_oDTMstr.Rows(0)("nRebatesx")
                         End If
@@ -446,7 +454,7 @@ Public Class LRPayment_Car
     End Function
 
     'Public Function SearchTransaction(String, Boolean, Boolean=False)
-    Public Function SearchTransaction( _
+    Public Function SearchTransaction(
                         ByVal fsValue As String _
                       , Optional ByVal fbByCode As Boolean = False) As Boolean
 
@@ -485,7 +493,7 @@ Public Class LRPayment_Car
                                         , False _
                                         , lsFilter _
                                         , "sReferNox»sClientNm»dTransact»sTransNox" _
-                                        , "Refer No»Client»Date»Trans No", _
+                                        , "Refer No»Client»Date»Trans No",
                                         , "a.sReferNox»b.sCompnyNm»a.dTransact»a.sTransNox" _
                                         , IIf(fbByCode, 0, 1))
         If IsNothing(loDta) Then
@@ -499,8 +507,8 @@ Public Class LRPayment_Car
     'Public Function SaveTransaction
     'This object does not implement Update
     Public Function SaveTransaction() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or _
-                p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or
+                p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -553,7 +561,7 @@ Public Class LRPayment_Car
 
     'Public Function CancelTransaction
     Public Function CancelTransaction() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -723,7 +731,7 @@ Public Class LRPayment_Car
 
     'End Function
     Public Function PrintTrans() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -753,8 +761,8 @@ Public Class LRPayment_Car
             If p_sParent = "" Then p_oApp.BeginTransaction()
 
             Dim lsSQL As String
-            lsSQL = "UPDATE " & p_sMasTable & _
-                   " SET cPrintedx = " & strParm(xeLogical.YES) & _
+            lsSQL = "UPDATE " & p_sMasTable &
+                   " SET cPrintedx = " & strParm(xeLogical.YES) &
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
 
             If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
@@ -840,7 +848,7 @@ Public Class LRPayment_Car
     End Function
     'Public Function PostTransaction()
     Public Function PostTransaction() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -858,18 +866,18 @@ Public Class LRPayment_Car
         'kalyptus - 2017.03.10 03:53pm
         'Check if there are unposted payment for this account...
         Dim lsSQL As String
-        lsSQL = "SELECT sTransNox" & _
-               " FROM " & p_sMasTable & _
-               " WHERE sTransNox <> " & strParm(p_oDTMstr(0).Item("sTransNox")) & _
-                 " AND sAcctNmbr = " & strParm(p_oDTMstr(0).Item("sAcctNmbr")) & _
-                 " AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact")) & _
-                 " AND cPostedxx = '0'" & _
-               " UNION" & _
-               " SELECT sTransNox" & _
-               " FROM LR_Payment_Master_PR" & _
-               " WHERE sAcctNmbr = " & strParm(p_oDTMstr(0).Item("sAcctNmbr")) & _
-                 " AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact")) & _
-                 " AND cPostedxx = '0'" & _
+        lsSQL = "SELECT sTransNox" &
+               " FROM " & p_sMasTable &
+               " WHERE sTransNox <> " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                 " AND sAcctNmbr = " & strParm(p_oDTMstr(0).Item("sAcctNmbr")) &
+                 " AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact")) &
+                 " AND cPostedxx = '0'" &
+               " UNION" &
+               " SELECT sTransNox" &
+               " FROM LR_Payment_Master_PR" &
+               " WHERE sAcctNmbr = " & strParm(p_oDTMstr(0).Item("sAcctNmbr")) &
+                 " AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact")) &
+                 " AND cPostedxx = '0'" &
                  " AND cPaymForm = '0'"
 
         'she 2017-03-27 2:52 pm 
@@ -877,7 +885,7 @@ Public Class LRPayment_Car
         '" AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact"))
         Dim loDta As DataTable = p_oApp.ExecuteQuery(lsSQL)
         If loDta.Rows.Count > 0 Then
-            MsgBox("There are unposted payment for this account!" & vbCrLf & _
+            MsgBox("There are unposted payment for this account!" & vbCrLf &
                    "Please post the transaction first...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
             Return False
         End If
@@ -1073,26 +1081,26 @@ Public Class LRPayment_Car
         End If
 
         Dim lsSQL As String
-        lsSQL = "SELECT" & _
-                       "  a.sAcctNmbr" & _
-                       ", b.sCompnyNm sClientNm" & _
-                       ", CONCAT(IF(IFNull(b.sHouseNox, '') = '', '', CONCAT(b.sHouseNox, ' ')), b.sAddressx, ', ', c.sTownName, ', ', d.sProvName, ' ', c.sZippCode) xAddressx" & _
-                       ", a.nABalance" & _
-                       ", a.nInterest" & _
-                       ", a.nAcctTerm" & _
-                       ", a.nMonAmort" & _
-                       ", a.nAmtDuexx" & _
-                       ", e.sCompnyNm" & _
-                       ", a.sCompnyID" & _
-                       ", a.sClientID" & _
-                       ", a.nIntTotal" & _
-                       ", a.nRebatesx" & _
-                       ", a.nInsChrge" & _
-               " FROM LR_Master a" & _
-                " LEFT JOIN Client_Master b ON a.sClientID = b.sClientID" & _
-                " LEFT JOIN TownCity c ON b.sTownIDxx = c.sTownIDxx" & _
-                " LEFT JOIN Province d ON c.sProvIDxx = d.sProvIDxx" & _
-                " LEFT JOIN Company e ON a.sCompnyID = e.sCompnyID" & _
+        lsSQL = "SELECT" &
+                       "  a.sAcctNmbr" &
+                       ", b.sCompnyNm sClientNm" &
+                       ", CONCAT(IF(IFNull(b.sHouseNox, '') = '', '', CONCAT(b.sHouseNox, ' ')), b.sAddressx, ', ', c.sTownName, ', ', d.sProvName, ' ', c.sZippCode) xAddressx" &
+                       ", a.nABalance" &
+                       ", a.nInterest" &
+                       ", a.nAcctTerm" &
+                       ", a.nMonAmort" &
+                       ", a.nAmtDuexx" &
+                       ", e.sCompnyNm" &
+                       ", a.sCompnyID" &
+                       ", a.sClientID" &
+                       ", a.nIntTotal" &
+                       ", a.nRebatesx" &
+                       ", a.nInsChrge" &
+               " FROM LR_Master a" &
+                " LEFT JOIN Client_Master b ON a.sClientID = b.sClientID" &
+                " LEFT JOIN TownCity c ON b.sTownIDxx = c.sTownIDxx" &
+                " LEFT JOIN Province d ON c.sProvIDxx = d.sProvIDxx" &
+                " LEFT JOIN Company e ON a.sCompnyID = e.sCompnyID" &
                " WHERE a.cLoanType = " & strParm(p_cLoanType)
 
         'Are we using like comparison or equality comparison
@@ -1102,7 +1110,7 @@ Public Class LRPayment_Car
                                              , True _
                                              , fsValue _
                                              , "sAcctNmbr»sClientNm»nABalance»sCompnyNm" _
-                                             , "Account No»Client»Balance»Company", _
+                                             , "Account No»Client»Balance»Company",
                                              , "a.sAcctNmbr»b.sCompnyNm»a.nABalance»e.sCompnyNm" _
                                              , IIf(fbIsCode, 0, 1))
             If IsNothing(loRow) Then
@@ -1196,13 +1204,13 @@ Public Class LRPayment_Car
         End If
 
         Dim lsSQL As String
-        lsSQL = "SELECT" & _
-                       "  b.sClientID" & _
-                       ", b.sCompnyNm sCollName" & _
-               " FROM Employee_Master001 a" & _
-                " LEFT JOIN Client_Master b ON a.sEmployID = b.sClientID" & _
-               " WHERE a.cCollectr = '1'" & _
-                 " AND a.sBranchCD = " & strParm(p_sBranchCd) & _
+        lsSQL = "SELECT" &
+                       "  b.sClientID" &
+                       ", b.sCompnyNm sCollName" &
+               " FROM Employee_Master001 a" &
+                " LEFT JOIN Client_Master b ON a.sEmployID = b.sClientID" &
+               " WHERE a.cCollectr = '1'" &
+                 " AND a.sBranchCD = " & strParm(p_sBranchCd) &
         IIf(p_nEditMode = xeEditMode.MODE_ADDNEW, " AND a.cRecdStat = '1'", "")
 
         'Are we using like comparison or equality comparison
@@ -1212,7 +1220,7 @@ Public Class LRPayment_Car
                                              , True _
                                              , fsValue _
                                              , "sClientID»sCollName" _
-                                             , "Coll ID»Collector", _
+                                             , "Coll ID»Collector",
                                              , "b.sClientID»b.sCompnyNm" _
                                              , IIf(fbIsCode, 0, 1))
             If IsNothing(loRow) Then
@@ -1253,115 +1261,115 @@ Public Class LRPayment_Car
         RaiseEvent MasterRetrieved(fnColDsc, p_oOthersx.sCollName)
     End Sub
 
-    Private Sub SplitPayment( _
-            ByVal fnPrincipl As Decimal _
-          , ByVal fnInterest As Decimal _
-          , ByVal fnAcctTerm As Integer _
-          , ByRef fnPaymTotl As Decimal _
-          , ByRef fnIntTotal As Decimal _
-          , ByRef fnTranAmtx As Decimal _
-          , ByRef fnPaidAmtx As Decimal _
-          , ByRef fnIntAmtxx As Decimal)
+    Private Sub SplitPayment(
+    ByVal fnPrincipl As Decimal,
+    ByVal fnInterest As Decimal,
+    ByVal fnAcctTerm As Integer,
+    ByVal fnRebatesx As Decimal,
+    ByRef fnTranAmtx As Decimal,
+    ByRef fnRebtAmtx As Decimal,
+    ByRef fnPaidAmtx As Decimal,
+    ByRef fnIntAmtxx As Decimal)
 
-        'Compute for the monthly amortization for the principal and interest
-        Dim lnPayAmort As Decimal = fnPrincipl / fnAcctTerm
-        Dim lnIntAmort As Decimal = fnInterest / fnAcctTerm
+        ' Compute monthly amortization for principal and interest
+        Dim lnPayAmort As Decimal = Math.Round(fnPrincipl / fnAcctTerm, 2)   ' monthly principal amortization
+        Dim lnIntAmort As Decimal = Math.Round(fnInterest / fnAcctTerm, 2)   ' monthly interest amortization
 
-        'Compute for the number of terms paid for the principal and interest
-        Dim lnPayTermx As Single = fnPaymTotl / lnPayAmort
+        If (fnRebtAmtx > 0) Then
+            lnIntAmort = lnIntAmort - fnRebatesx                         ' reduce interest amortization by rebate
+        End If
+
+        Dim lnMortRate As Decimal = lnPayAmort / (lnPayAmort + lnIntAmort)
+
+        fnPaidAmtx = Math.Round(lnMortRate * fnTranAmtx, 2)
+        fnIntAmtxx = fnTranAmtx - fnPaidAmtx
+    End Sub
+
+    Private Sub SplitPaymentX(
+    ByVal fnPrincipl As Decimal,
+    ByVal fnInterest As Decimal,
+    ByVal fnAcctTerm As Integer,
+    ByVal fnRebatesx As Decimal,
+    ByVal fnPaymTotl As Decimal,
+    ByVal fnIntTotal As Decimal,
+    ByRef fnTranAmtx As Decimal,
+    ByRef fnRebtAmtx As Decimal,
+    ByRef fnPaidAmtx As Decimal,
+    ByRef fnIntAmtxx As Decimal)
+
+        ' Compute monthly amortization for principal and interest
+        Dim lnPayAmort As Decimal = Math.Round(fnPrincipl / fnAcctTerm, 2)   ' monthly principal amortization
+        Dim lnIntAmort As Decimal = Math.Round(fnInterest / fnAcctTerm, 2)   ' monthly interest amortization
+
+        ' Compute number of terms paid for principal
+        Dim lnPayTermx As Single = Math.Round(fnPaymTotl / lnPayAmort, 1)    ' terms covered by total principal payments
         Dim lnIntTermx As Single
 
+        ' Compute number of terms paid for interest
         If lnIntAmort = 0 Then
-            lnIntTermx = 0
+            lnIntTermx = 0                                                   ' no interest amortization if zero
         Else
-            lnIntTermx = fnIntTotal / lnIntAmort
+            lnIntTermx = Math.Round(fnIntTotal / lnIntAmort, 1)              ' terms covered by total interest payments
+
+            ' Check if rebate applies, adjust interest amortization
+            If (fnRebtAmtx > 0) Then
+                lnIntAmort = lnIntAmort - fnRebatesx                         ' reduce interest amortization by rebate
+            End If
         End If
 
-        If fnTranAmtx <= 0 Then Exit Sub
-        If lnPayTermx = lnIntTermx Then
+        ' Case: principal terms > interest terms
+        If lnPayTermx > lnIntTermx Then
+            ' Compute excess portion from interest amortization
+            Dim lnIntExcPrcnt As Decimal = lnIntAmort - Int(lnIntAmort)      ' fractional part of interest amortization
+            Dim lnIntExcAmntx As Decimal = fnIntAmtxx * lnIntExcPrcnt        ' excess interest amount
 
-            'Distribute payment to interest payment
-            If fnTranAmtx < lnIntAmort Then
-
-                'Get the actual interest deducted
-                lnIntAmort = fnTranAmtx
-
-                fnIntAmtxx = fnIntAmtxx + fnTranAmtx
-                fnTranAmtx = 0
+            ' Apply excess interest to payments
+            If (lnIntExcAmntx < fnTranAmtx) Then
+                fnIntAmtxx = fnIntAmtxx + lnIntExcAmntx                      ' add excess to interest paid
+                fnTranAmtx = fnTranAmtx - lnIntExcAmntx                      ' reduce transaction amount
             Else
-
-                fnIntAmtxx = fnIntAmtxx + lnIntAmort
-                fnTranAmtx = fnTranAmtx - lnIntAmort
+                fnIntAmtxx = fnIntAmtxx + lnIntExcAmntx
+                fnTranAmtx = 0
             End If
 
-            'Distribute payment to monthly payment
-            If fnTranAmtx < lnPayAmort Then
-
-                'Get the actual monthly amortization deducted
-                lnPayAmort = fnTranAmtx
-
-                fnPaidAmtx = fnPaidAmtx + fnTranAmtx
-                fnTranAmtx = 0
-            Else
-
-                fnPaidAmtx = fnPaidAmtx + lnPayAmort
-                fnTranAmtx = fnTranAmtx - lnPayAmort
-            End If
-
-            fnPaymTotl = fnPaymTotl + lnPayAmort
-            fnIntTotal = fnIntTotal + lnIntAmort
+            ' Case: interest terms > principal terms
         ElseIf lnPayTermx < lnIntTermx Then
+            ' Compute excess portion from principal amortization
+            Dim lnPayExcPrcnt As Decimal = lnPayAmort - Int(lnPayAmort)      ' fractional part of principal amortization
+            Dim lnPayExcAmntx As Decimal = fnIntAmtxx * lnPayExcPrcnt        ' excess principal amount
 
-            'Compute for the amount to be distributed for monthly payment
-            'Dim lnDiff As Decimal = (lnPayTermx - lnIntTermx) * lnPayAmort
-            Dim lnDiff As Decimal = (lnIntTermx - lnPayTermx) * lnPayAmort
-            lnPayAmort = lnDiff
-            If fnTranAmtx < lnDiff Then
-                'Get the actual monthly amortization
-                lnPayAmort = fnTranAmtx
-
-                fnPaidAmtx = fnPaidAmtx + fnTranAmtx
+            ' Apply excess principal to payments
+            If (lnPayExcAmntx < fnTranAmtx) Then
+                fnPaidAmtx = fnIntAmtxx + lnPayExcAmntx                      ' add excess to principal paid
+                fnTranAmtx = fnTranAmtx - lnPayExcAmntx
+            Else
+                fnPaidAmtx = fnIntAmtxx + lnPayExcAmntx
                 fnTranAmtx = 0
-            Else
-                fnPaidAmtx = fnPaidAmtx + lnDiff
-                fnTranAmtx = fnTranAmtx - lnDiff
             End If
-            fnPaymTotl = fnPaymTotl + lnPayAmort
-        Else
-            If lnIntAmort > 0 Then
-                'Compute for the amount to be distributed for interest payment
-                Dim lnDiff As Decimal = (lnPayTermx - lnIntTermx) * lnIntAmort
-                lnIntAmort = lnDiff
-                If fnTranAmtx < lnDiff Then
-                    lnIntAmort = fnTranAmtx
-                    fnIntAmtxx = fnIntAmtxx + fnTranAmtx
-                    fnTranAmtx = 0
-                Else
-                    fnIntAmtxx = fnIntAmtxx + lnDiff
-                    fnTranAmtx = fnTranAmtx - lnDiff
-                End If
-                fnIntTotal = fnIntTotal + lnIntAmort
-            Else
-                'Distribute payment to monthly payment
-                If fnTranAmtx < lnPayAmort Then
-                    'Get the actual monthly amortization deducted
-                    lnPayAmort = fnTranAmtx
+        End If
 
-                    fnPaidAmtx = fnPaidAmtx + fnTranAmtx
-                    fnTranAmtx = 0
-                Else
-                    fnPaidAmtx = fnPaidAmtx + lnPayAmort
-                    fnTranAmtx = fnTranAmtx - lnPayAmort
-                End If
+        ' Loop until transaction amount is fully allocated
+        While fnTranAmtx > 0
+            ' Allocate to principal amortization
+            If lnPayAmort < fnTranAmtx Then
+                fnPaidAmtx += lnPayAmort                                     ' add one full principal amortization
+                fnTranAmtx -= lnPayAmort
+            Else
+                fnPaidAmtx += fnTranAmtx                                     ' add remaining amount to principal
+                fnTranAmtx = 0
             End If
-        End If
-        'Execute a recursive function if fnTranAmtx is not yet 0
-        If fnTranAmtx > 0 Then
-            If fnInterest > 0 Then
-                SplitPayment(fnPrincipl, fnInterest, fnAcctTerm, fnPaymTotl, fnIntTotal, fnTranAmtx, fnPaidAmtx, fnIntAmtxx)
+
+            ' Allocate to interest amortization
+            If lnIntAmort < fnTranAmtx Then
+                fnIntAmtxx += lnIntAmort                                     ' add one full interest amortization
+                fnTranAmtx -= lnIntAmort
+            Else
+                fnIntAmtxx += fnTranAmtx                                     ' add remaining amount to interest
+                fnTranAmtx = 0
             End If
-        End If
+        End While
     End Sub
+
 
     Public Sub SearchBranch(ByVal fsValue As String _
                           , ByVal fbIsCode As Boolean _

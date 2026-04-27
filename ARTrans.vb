@@ -401,12 +401,34 @@ Public Class ARTrans
         End With
     End Function
 
-    Function getMonthTerm( _
-            ByVal dFirstPay As Date, _
-            ByVal dTransact As Date
-            ) As Integer
-        getMonthTerm = DateDiff(DateInterval.Month, dFirstPay, dTransact) + 1
-        getMonthTerm = IIf(Day(dFirstPay) > Day(dTransact), getMonthTerm - 1, getMonthTerm)
+    'Function getMonthTerm(
+    '        ByVal dFirstPay As Date,
+    '        ByVal dTransact As Date
+    '        ) As Integer
+    '    getMonthTerm = DateDiff(DateInterval.Month, dFirstPay, dTransact) + 1
+    '    getMonthTerm = IIf(Day(dFirstPay) > Day(dTransact), getMonthTerm - 1, getMonthTerm)
+    'End Function
+
+    Function GetMonthTerm(ByVal dFirstPay As Date, ByVal dTransact As Date) As Integer
+        ' 1. Calculate the raw difference in months
+        ' Example: (2026-2026)*12 + (3-1) = 2
+        Dim lnMonths As Integer = ((dTransact.Year - dFirstPay.Year) * 12) + (dTransact.Month - dFirstPay.Month)
+
+        ' 2. Adjust for the Day of the Month (The "Anniversary" check)
+        ' We use a short-circuiting If() which is faster and safer than IIf()
+        If dTransact.Day < dFirstPay.Day Then
+            ' Special Case: If the transaction is on the last day of the month (e.g., Feb 28),
+            ' and the due date was the 30th/31st, we should treat it as a full month.
+            Dim bIsLastDayTrans As Boolean = (dTransact.Day = Date.DaysInMonth(dTransact.Year, dTransact.Month))
+            Dim bIsLastDayFirst As Boolean = (dFirstPay.Day >= Date.DaysInMonth(dFirstPay.Year, dFirstPay.Month))
+
+            If Not (bIsLastDayTrans And bIsLastDayFirst) Then
+                lnMonths -= 1
+            End If
+        End If
+
+        ' 3. Return 1-based term (Month 1, Month 2, etc.)
+        Return lnMonths + 1
     End Function
 
     Function getAveDelay(
