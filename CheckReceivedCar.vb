@@ -892,9 +892,9 @@ Public Class CheckReceivedCar
                         loTrans.Master("sAcctNmbr") = p_oDTDetl(lnRow).Item("sAcctNmbr")
                         loTrans.Master("sClientID") = p_oDTDetl(lnRow).Item("sClientID")
                         'loTrans.Master("sPaidByID") = ""
-                        loTrans.Master(91) = p_oDTDetl(lnRow).Item("nTranAmtx") + p_oDTDetl(lnRow).Item("nIntAmtxx")
                         loTrans.Master("nRebatesx") = p_oDTDetl(lnRow).Item("nRebatesx")
                         loTrans.Master("nPenaltyx") = p_oDTDetl(lnRow).Item("nPenaltyx")
+                        loTrans.Master(91) = p_oDTDetl(lnRow).Item("nTranAmtx") + p_oDTDetl(lnRow).Item("nIntAmtxx")
                         loTrans.Master("sSourceCD") = "CChk"
                         loTrans.Master("sSourceNo") = p_oDTDetl(lnRow).Item("sTransNox")
                         loTrans.Master("sCollIDxx") = p_oDTDetl(lnRow).Item("sCollIDxx")

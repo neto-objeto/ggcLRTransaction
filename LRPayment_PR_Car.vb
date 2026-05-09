@@ -173,8 +173,10 @@ Public Class LRPayment_PR_Car
                             'Call SplitPaymentX(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnPaymTotl, lnIntTotal, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
                             Call SplitPayment(lnPrincipl, lnInterest, lnAcctTerm, lnRebatesx, lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
 
-                            p_oDTMstr(0).Item("nAmountxx") = lnPaidAmtx + p_oDTMstr.Rows(0)("nRebatesx")
-                            p_oDTMstr(0).Item("nIntAmtxx") = lnIntAmtxx - p_oDTMstr.Rows(0)("nRebatesx")
+                            'p_oDTMstr(0).Item("nAmountxx") = lnPaidAmtx + p_oDTMstr.Rows(0)("nRebatesx")
+                            'p_oDTMstr(0).Item("nIntAmtxx") = lnIntAmtxx - p_oDTMstr.Rows(0)("nRebatesx")
+                            p_oDTMstr(0).Item("nAmountxx") = lnPaidAmtx
+                            p_oDTMstr(0).Item("nIntAmtxx") = lnIntAmtxx
                         End If
 
                         RaiseEvent MasterRetrieved(7, p_oDTMstr(0).Item("nAmountxx"))

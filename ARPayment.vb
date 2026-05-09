@@ -1335,16 +1335,21 @@ endWithRoll:
             If p_sParent = "" Then p_oApp.CommitTransaction()
 
             If p_oDTMstr(0).Item("cTranType") = "2" Then
-                'mac 2024.04.10
-                '   implementation of TDS
-                If Not OnlineEntry() Then
-                    MsgBox("Unable to AUTO ENTRY POINTS." & vbCrLf & vbCrLf & "You may ENCODE the client's POINTS on GCARD SYSTEM.", MsgBoxStyle.Exclamation, "Notice")
+                'kalyptus 2026.05.05 11:39am
+                'check first if gcard is digital
+                If p_oOthersx.cDigitalx = "1" Then
+                    'mac 2024.04.10
+                    '   implementation of TDS
+                    If Not OnlineEntry() Then
+                        MsgBox("Unable to AUTO ENTRY POINTS." & vbCrLf & vbCrLf & "You may ENCODE the client's POINTS on GCARD SYSTEM.", MsgBoxStyle.Exclamation, "Notice")
+                    End If
                 End If
             End If
 
             Return True
         Catch ex As Exception
-            MsgBox(ex.Message & vbCrLf & vbCrLf & _
+            If p_sParent = "" Then p_oApp.RollBackTransaction()
+            MsgBox(ex.Message & vbCrLf & vbCrLf &
                    "Please inform MIS Department immediately.", , "Unable to AUTO ENTRY GCARD POINTS")
         End Try
 
@@ -1807,7 +1812,6 @@ endWithRoll:
         RaiseEvent MasterRetrieved(fnColDsc, p_oOthersx.xPaidByxx)
     End Sub
 
-
     'This method implements a search master where id and desc are not joined.
     Private Sub getCollector(ByVal fnColIdx As Integer _
                            , ByVal fnColDsc As Integer _
@@ -2031,15 +2035,13 @@ endWithRoll:
             .Master("sAcctNmbr") = p_oDTMstr(0).Item("sAcctNmbr")
             loDta = .GetMaster()
 
-
             If DateTime.Compare(p_oDTMstr(0).Item("dTransact"), loDta(0).Item("dDueDatex")) > 0 Then
                 ldDueDate = loDta(0).Item("dDueDatex")
             Else
                 ldDueDate = p_oDTMstr(0).Item("dTransact")
             End If
 
-
-            lnActTerm = .getMonthTerm(loDta(0).Item("dFirstPay"), ldDueDate)
+            lnActTerm = .GetMonthTerm(loDta(0).Item("dFirstPay"), ldDueDate)
 
             'kalyptus - 2020.06.06 03:49pm
             'Replace the logic below
