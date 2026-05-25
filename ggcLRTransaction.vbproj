@@ -93,11 +93,12 @@
     <Compile Include="ARPayment_PR_MP.vb" />
     <Compile Include="ARTrans.vb" />
     <Compile Include="LRApplicationTransfer.vb" />
+    <Compile Include="LRPayment_Car.vb" />
+    <Compile Include="MCARContract.vb" />
     <Compile Include="McModel.vb" />
     <Compile Include="CheckReceived.vb" />
     <Compile Include="CheckReceivedCar.vb" />
     <Compile Include="LRPayment_PR_Car.vb" />
-    <Compile Include="LRPayment_Car.vb" />
     <Compile Include="LRMasterCarNeo.vb" />
     <Compile Include="LRCarSerial.vb" />
     <Compile Include="LRCarSerialRegistration.vb" />

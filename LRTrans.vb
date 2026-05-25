@@ -526,7 +526,7 @@ Public Class LRTrans
         Dim lnDebtTotl As Decimal = 0
         Dim lnCredTotl As Decimal = 0
         Dim lnRebTotlx As Decimal = 0
-        Dim lnABalance As Decimal = loDtaMstr(0).Item("nPrincipl")
+        Dim lnABalance As Decimal = loDtaMstr(0).Item("nPrincipl") + loDtaMstr(0).Item("nInsChrge")
 
         Dim lnLastPaym As Decimal = 0
         Dim ldLastPaym As Date = loDtaMstr(0).Item("dTransact")
@@ -645,6 +645,198 @@ Public Class LRTrans
 
         Return True
     End Function
+
+    Public Function RecalculateX(ByVal fsAcctNmbr As String) As Boolean
+        Dim loDtaMstr As DataTable = GetMaster(fsAcctNmbr)
+
+        'If no record was found, exit immediately 
+        If Not loDtaMstr.Rows.Count = 1 Then
+            MsgBox("Unable to recalculate!" & vbCrLf &
+                   "No record found for " & p_sAcctNmbr & " ...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
+            Return False
+        End If
+
+        Dim lnPaymTotl As Decimal = 0
+        Dim lnIntTotal As Decimal = 0
+        Dim lnPenTotlx As Decimal = 0
+        Dim lnDebtTotl As Decimal = 0
+        Dim lnCredTotl As Decimal = 0
+        Dim lnRebTotlx As Decimal = 0
+        Dim lnABalance As Decimal = loDtaMstr(0).Item("nPrincipl") + loDtaMstr(0).Item("nInsChrge")
+
+        Dim lnLastPaym As Decimal = 0
+        Dim ldLastPaym As Date = loDtaMstr(0).Item("dTransact")
+
+        Dim lnMonDelay As Decimal = 0
+        Dim lnAmtDuexx As Decimal = 0
+
+        Dim lnPaidAmtx As Decimal = 0
+        Dim lnIntAmtxx As Decimal = 0
+        Dim lnPenaltyx As Decimal = 0
+        Dim lnTranAmtx As Decimal = 0
+        Dim lnPaidAmrt As Decimal = 0
+        Dim lnRebtAmtx As Decimal = 0
+
+        'kalyptus - 2022.10.14 01:49pm
+        'Add ldClosedxx in recording what might be the actual closing date of the account
+        Dim ldClosedxx As Object
+
+        Try
+            Dim lsSQL As String = "SELECT *" &
+                                 " FROM LR_Ledger" &
+                                 " WHERE sAcctnmbr = " & strParm(fsAcctNmbr) &
+                                 " ORDER BY sAcctNmbr, dTransact, nEntryNox"
+            Dim loDtaLdgr As DataTable = p_oApp.ExecuteQuery(lsSQL)
+
+            'If account has no ledger then exit immediately
+            If loDtaLdgr.Rows.Count = 0 Then
+                MsgBox("Unable to recalculate!" & vbCrLf &
+                       "No record found for the ledger of " & p_sAcctNmbr & " ...", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, p_sMsgHeadr)
+                Return False
+            End If
+
+            ldClosedxx = Nothing
+
+            Dim lnRow As Integer
+            For lnRow = 0 To loDtaLdgr.Rows.Count - 1
+
+                'Compute the total transaction amount for this transaction
+                lnTranAmtx = loDtaLdgr(lnRow).Item("nPaidAmtx") + loDtaLdgr(lnRow).Item("nIntAmtxx")
+
+                'include the penalty if account has allocated rebate
+                If loDtaMstr(0).Item("nRebatesx") > 0 Then
+                    lnTranAmtx += loDtaLdgr(lnRow).Item("nPenaltyx")
+                    lnPenaltyx = 0
+                End If
+
+                'Get the allocated rebate for this transaction
+                lnRebtAmtx = loDtaLdgr(lnRow).Item("nRebatesx")
+
+                Call SplitPayment(loDtaMstr(0).Item("nPrincipl") + loDtaMstr(0).Item("nInsChrge") _
+                                , loDtaMstr(0).Item("nInterest") _
+                                , loDtaMstr(0).Item("nAcctTerm") _
+                                , loDtaMstr(0).Item("nRebatesx") _
+                                , lnTranAmtx, lnRebtAmtx, lnPaidAmtx, lnIntAmtxx)
+
+                'Update the ledger with the new split of payment, interest and penalty amounts
+                loDtaLdgr(lnRow).Item("nPaidAmtx") = lnPaidAmtx
+                loDtaLdgr(lnRow).Item("nIntAmtxx") = lnIntAmtxx
+                loDtaLdgr(lnRow).Item("nPenaltyx") = lnPenaltyx
+
+                lnPaymTotl = lnPaymTotl + loDtaLdgr(lnRow).Item("nPaidAmtx")
+                lnIntTotal = lnIntTotal + loDtaLdgr(lnRow).Item("nIntAmtxx")
+                lnPenTotlx = lnPenTotlx + loDtaLdgr(lnRow).Item("nPenaltyx")
+
+                lnDebtTotl = lnDebtTotl + loDtaLdgr(lnRow).Item("nDebitAmt")
+                lnCredTotl = lnCredTotl + loDtaLdgr(lnRow).Item("nCredtAmt")
+                lnRebTotlx = lnRebTotlx + IFNull(loDtaLdgr(lnRow).Item("nRebatesx"), 0)
+                lnABalance = lnABalance - loDtaLdgr(lnRow).Item("nPaidAmtx") - loDtaLdgr(lnRow).Item("nCredtAmt") + loDtaLdgr(lnRow).Item("nDebitAmt")
+
+                'kalyptus - 2022.10.14 01:49pm
+                'Set the closing date based on the transaction date of this transaction
+                'if this transaction makes our balance equal or less than zero(0)
+                If lnABalance <= 0 And Not IsDate(ldClosedxx) Then
+                    ldClosedxx = loDtaLdgr(lnRow).Item("dTransact")
+                End If
+
+                loDtaLdgr(lnRow).Item("nABalance") = lnABalance
+                loDtaLdgr(lnRow).Item("nEntryNox") = lnRow + 1
+                lnMonDelay = getDelay(loDtaMstr, loDtaLdgr(lnRow).Item("dTransact"))
+                lnAmtDuexx = lnMonDelay * loDtaMstr(0).Item("nMonAmort")
+                loDtaLdgr(lnRow).Item("nMonDelay") = Math.Round(lnMonDelay, 2)
+                loDtaLdgr(lnRow).Item("nAmtDuexx") = lnAmtDuexx
+
+                lsSQL = ADO2SQL(loDtaLdgr _
+                              , lnRow _
+                              , "LR_Ledger" _
+                              , "sAcctNmbr = " & strParm(fsAcctNmbr) & " AND sSourceCd = " & strParm(loDtaLdgr(lnRow).Item("sSourceCd")) & " AND sSourceNo = " & strParm(loDtaLdgr(lnRow).Item("sSourceNo")))
+                'Save the detail of there are updates in the ledger...
+                If lsSQL <> "" Then
+                    p_oApp.Execute(lsSQL, "LR_Ledger")
+                End If
+
+                'Last transaction should be from payment transactor penalty only
+                If loDtaLdgr(lnRow).Item("cTrantype") = "0" Or loDtaLdgr(lnRow).Item("cTrantype") = "3" Then
+                    ldLastPaym = loDtaLdgr(lnRow).Item("dTransact")
+                    lnLastPaym = loDtaLdgr(lnRow).Item("nPaidAmtx") + loDtaLdgr(lnRow).Item("nIntAmtxx") + loDtaLdgr(lnRow).Item("nPenaltyx")
+                End If
+            Next
+
+            loDtaMstr(0).Item("nABalance") = lnABalance
+            loDtaMstr(0).Item("nLedgerNo") = loDtaLdgr.Rows.Count
+            loDtaMstr(0).Item("nAmtDuexx") = lnAmtDuexx
+
+            loDtaMstr(0).Item("nPaymTotl") = lnPaymTotl
+            loDtaMstr(0).Item("nIntTotal") = lnIntTotal
+            loDtaMstr(0).Item("nPenTotlx") = lnPenTotlx
+            loDtaMstr(0).Item("nDebtTotl") = lnDebtTotl
+            loDtaMstr(0).Item("nCredTotl") = lnCredTotl
+            loDtaMstr(0).Item("nCredTotl") = lnCredTotl
+            loDtaMstr(0).Item("nRebTotlx") = lnRebTotlx
+
+            If lnLastPaym > 0 Then
+                loDtaMstr(0).Item("dLastPaym") = ldLastPaym
+                loDtaMstr(0).Item("nLastPaym") = lnLastPaym
+            End If
+
+            If lnABalance <= loDtaMstr(0).Item("nMonAmort") + 10 Then
+                Dim lnDelayAvg As Single
+                lnDelayAvg = getAveDelay(loDtaMstr, p_dTransact)
+                loDtaMstr(0).Item("nDelayAvg") = lnDelayAvg
+                loDtaMstr(0).Item("cRatingxx") = getRating(lnDelayAvg, "")
+            End If
+
+            If lnABalance <= 0 Then
+                'loDtaMstr(0).Item("dClosedxx") = loDtaLdgr(loDtaLdgr.Rows.Count - 1).Item("dTransact")
+                'kalyptus - 2022.10.14 01:49pm
+                'Set the closing date based on the save last transaction that cause the balance to zero(0)
+                loDtaMstr(0).Item("dClosedxx") = ldClosedxx
+                loDtaMstr(0).Item("cAcctstat") = "1"
+                loDtaMstr(0).Item("cActivexx") = "0"
+            Else
+                'loDtaMstr(0).Item("dClosedxx") = vbNull
+                loDtaMstr(0).Item("cAcctstat") = "0"
+                loDtaMstr(0).Item("cActivexx") = "1"
+            End If
+
+            lsSQL = ADO2SQL(loDtaMstr _
+                          , "LR_Master" _
+                          , "sAcctNmbr = " & strParm(fsAcctNmbr))
+            'Save the master if there are updates in the master...
+            If lsSQL <> "" Then
+                p_oApp.Execute(lsSQL, "LR_Master")
+            End If
+        Catch ex As Exception
+            Throw ex
+            Return False
+        End Try
+
+        Return True
+    End Function
+
+    Private Sub SplitPayment(
+    ByVal fnPrincipl As Decimal,
+    ByVal fnInterest As Decimal,
+    ByVal fnAcctTerm As Integer,
+    ByVal fnRebatesx As Decimal,
+    ByRef fnTranAmtx As Decimal,
+    ByRef fnRebtAmtx As Decimal,
+    ByRef fnPaidAmtx As Decimal,
+    ByRef fnIntAmtxx As Decimal)
+
+        ' Compute monthly amortization for principal and interest
+        Dim lnPayAmort As Decimal = Math.Round(fnPrincipl / fnAcctTerm, 2)   ' monthly principal amortization
+        Dim lnIntAmort As Decimal = Math.Round(fnInterest / fnAcctTerm, 2)   ' monthly interest amortization
+
+        If (fnRebtAmtx > 0) Then
+            lnIntAmort = lnIntAmort - fnRebatesx                         ' reduce interest amortization by rebate
+        End If
+
+        Dim lnMortRate As Decimal = lnPayAmort / (lnPayAmort + lnIntAmort)
+
+        fnPaidAmtx = Math.Round(lnMortRate * fnTranAmtx, 2)
+        fnIntAmtxx = fnTranAmtx - fnPaidAmtx
+    End Sub
 
     Public Sub New(ByVal foRider As GRider)
         p_oApp = foRider

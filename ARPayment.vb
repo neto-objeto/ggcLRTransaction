@@ -1335,16 +1335,21 @@ endWithRoll:
             If p_sParent = "" Then p_oApp.CommitTransaction()
 
             If p_oDTMstr(0).Item("cTranType") = "2" Then
-                'mac 2024.04.10
-                '   implementation of TDS
-                If Not OnlineEntry() Then
-                    MsgBox("Unable to AUTO ENTRY POINTS." & vbCrLf & vbCrLf & "You may ENCODE the client's POINTS on GCARD SYSTEM.", MsgBoxStyle.Exclamation, "Notice")
+                'kalyptus 2026.05.05 11:39am
+                'check first if gcard is digital
+                If p_oOthersx.cDigitalx = "1" Then
+                    'mac 2024.04.10
+                    '   implementation of TDS
+                    If Not OnlineEntry() Then
+                        MsgBox("Unable to AUTO ENTRY POINTS." & vbCrLf & vbCrLf & "You may ENCODE the client's POINTS on GCARD SYSTEM.", MsgBoxStyle.Exclamation, "Notice")
+                    End If
                 End If
             End If
 
             Return True
         Catch ex As Exception
-            MsgBox(ex.Message & vbCrLf & vbCrLf & _
+            If p_sParent = "" Then p_oApp.RollBackTransaction()
+            MsgBox(ex.Message & vbCrLf & vbCrLf &
                    "Please inform MIS Department immediately.", , "Unable to AUTO ENTRY GCARD POINTS")
         End Try
 
@@ -1807,7 +1812,6 @@ endWithRoll:
         RaiseEvent MasterRetrieved(fnColDsc, p_oOthersx.xPaidByxx)
     End Sub
 
-
     'This method implements a search master where id and desc are not joined.
     Private Sub getCollector(ByVal fnColIdx As Integer _
                            , ByVal fnColDsc As Integer _
@@ -2031,50 +2035,44 @@ endWithRoll:
             .Master("sAcctNmbr") = p_oDTMstr(0).Item("sAcctNmbr")
             loDta = .GetMaster()
 
-
             If DateTime.Compare(p_oDTMstr(0).Item("dTransact"), loDta(0).Item("dDueDatex")) > 0 Then
                 ldDueDate = loDta(0).Item("dDueDatex")
             Else
                 ldDueDate = p_oDTMstr(0).Item("dTransact")
             End If
 
-
-            lnActTerm = .getMonthTerm(loDta(0).Item("dFirstPay"), ldDueDate)
+            lnActTerm = .GetMonthTerm(loDta(0).Item("dFirstPay"), ldDueDate)
 
             'kalyptus - 2020.06.06 03:49pm
             'Replace the logic below
             'Freeze the term for 2 months for sales prior to the lockdown period and payments from the lockdown period...
             lnActTerm = lnActTerm - getFreezeMonth(loDta(0).Item("sAcctNmbr"), ldDueDate)
 
-            ''kalyptus - 2020.05.18 11:28am
-            ''Freeze the term for 2 months for sales prior to the lockdown period and payments from the lockdown period...
-            'If loDta(0).Item("dPurchase") < CDate("2020-04-01") And p_oDTMstr(0).Item("dTransact") >= CDate("2020-05-16") Then
-            '    lnActTerm = lnActTerm - 2
+            ' compute the excess days for validation of rebates by user
+            'If Day(p_oDTMstr(0).Item("dTransact")) > Day(loDta(0).Item("dFirstPay")) Then
+            '    lnExcessDay = DateDiff("d", DateSerial(Year(p_oDTMstr(0).Item("dTransact")),
+            '                   Month(p_oDTMstr(0).Item("dTransact")), Day(loDta(0).Item("dFirstPay"))),
+            '                   p_oDTMstr(0).Item("dTransact"))
+            'Else
+            '    ldDueDate = DateSerial(Year(p_oDTMstr(0).Item("dTransact")),
+            '                   Month(p_oDTMstr(0).Item("dTransact")) + 1, Day(loDta(0).Item("dFirstPay")))
+            '    If Month(DateAdd("m", 1, p_oDTMstr(0).Item("dTransact"))) <> Month(ldDueDate) Then
+            '        ldDueDate = DateAdd("d", Day(ldDueDate) * -1, ldDueDate)
+            '    End If
+
+            '    lnExcessDay = DateDiff("d", p_oDTMstr(0).Item("dTransact"), ldDueDate)
             'End If
 
-            ' compute the excess days for validation of rebates by user
-            If Day(p_oDTMstr(0).Item("dTransact")) > Day(loDta(0).Item("dFirstPay")) Then
-                lnExcessDay = DateDiff("d", DateSerial(Year(p_oDTMstr(0).Item("dTransact")), _
-                               Month(p_oDTMstr(0).Item("dTransact")), Day(loDta(0).Item("dFirstPay"))), _
-                               p_oDTMstr(0).Item("dTransact"))
-            Else
-                ldDueDate = DateSerial(Year(p_oDTMstr(0).Item("dTransact")), _
-                               Month(p_oDTMstr(0).Item("dTransact")) + 1, Day(loDta(0).Item("dFirstPay")))
-                If Month(DateAdd("m", 1, p_oDTMstr(0).Item("dTransact"))) <> Month(ldDueDate) Then
-                    ldDueDate = DateAdd("d", Day(ldDueDate) * -1, ldDueDate)
-                End If
+            lnExcessDay = CalculateExcessDays(p_oDTMstr(0).Item("dTransact"), loDta(0).Item("dFirstPay"))
 
-                lnExcessDay = DateDiff("d", p_oDTMstr(0).Item("dTransact"), ldDueDate)
-            End If
-
-            lnAmtDuex = (lnActTerm * loDta(0).Item("nMonAmort")) + _
-                        loDta(0).Item("nDownPaym") + _
-                        loDta(0).Item("nCashBalx") + _
+            lnAmtDuex = (lnActTerm * loDta(0).Item("nMonAmort")) +
+                        loDta(0).Item("nDownPaym") +
+                        loDta(0).Item("nCashBalx") +
                         loDta(0).Item("nDebtTotl")
 
-            lnAmtDuex = lnAmtDuex - (loDta(0).Item("nPaymTotl") + loDta(0).Item("nRebTotlx") + _
-                        p_oDTMstr(0).Item("nAmountxx") + p_oDTMstr(0).Item("nRebatesx") + _
-                        loDta(0).Item("nDownTotl") + loDta(0).Item("nCashTotl") + _
+            lnAmtDuex = lnAmtDuex - (loDta(0).Item("nPaymTotl") + loDta(0).Item("nRebTotlx") +
+                        p_oDTMstr(0).Item("nAmountxx") + p_oDTMstr(0).Item("nRebatesx") +
+                        loDta(0).Item("nDownTotl") + loDta(0).Item("nCashTotl") +
                         loDta(0).Item("nCredTotl"))
 
 
@@ -2101,7 +2099,8 @@ endWithRoll:
 
                 If lnExcessDay < 30 Then
                     If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
-                        lnRebates = lnRebates + loDta(0).Item("nRebatesx")
+                        'lnRebates = lnRebates + loDta(0).Item("nRebatesx")
+                        getRebates = lnRebates + loDta(0).Item("nRebatesx")
                     End If
                 End If
             Else
@@ -2124,19 +2123,34 @@ endWithRoll:
                         End If
                     Else
                         'Since it has no promo rebate then use the default rebate
-                        If lnExcessDay < 30 Then
+                        If lnExcessDay <= 30 Then
                             If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
                                 lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
                             Else
                                 lnRebates = 0
                             End If
+                        ElseIf Math.Abs(lnAmtDuex) >= loDta(0).Item("nMonAmort") Then
+                            lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
                         End If
                     End If
+
+                    getRebates = lnRebates
                 End If
             End If
         End With
 
         Return getRebates
+    End Function
+
+    Private Function CalculateExcessDays(transDate As Date, firstPayDate As Date) As Integer
+        If transDate.Day > firstPayDate.Day Then
+            Dim compareDate = New Date(transDate.Year, transDate.Month, firstPayDate.Day)
+            Return CInt((transDate - compareDate).TotalDays)
+        Else
+            Dim nextMonth = transDate.AddMonths(1)
+            Dim compareDate = New Date(nextMonth.Year, nextMonth.Month, firstPayDate.Day)
+            Return CInt((compareDate - transDate).TotalDays)
+        End If
     End Function
 
     Public Sub SearchBranch(ByVal fsValue As String _
@@ -2252,28 +2266,28 @@ endWithRoll:
             Dim intAmount As Long = nAmount
             If intAmount > 0 Then
                 nSet = IIf((intAmount.ToString.Trim.Length / 3) _
-                 > (CLng(intAmount.ToString.Trim.Length / 3)), _
-                  CLng(intAmount.ToString.Trim.Length / 3) + 1, _
+                 > (CLng(intAmount.ToString.Trim.Length / 3)),
+                  CLng(intAmount.ToString.Trim.Length / 3) + 1,
                    CLng(intAmount.ToString.Trim.Length / 3))
-                Dim eAmount As Long = Microsoft.VisualBasic.Left(intAmount.ToString.Trim, _
+                Dim eAmount As Long = Microsoft.VisualBasic.Left(intAmount.ToString.Trim,
                   (intAmount.ToString.Trim.Length - ((nSet - 1) * 3)))
                 Dim multiplier As Long = 10 ^ (((nSet - 1) * 3))
 
-                Dim Ones() As String = _
-                {"", "One", "Two", "Three", _
-                  "Four", "Five", _
+                Dim Ones() As String =
+                {"", "One", "Two", "Three",
+                  "Four", "Five",
                   "Six", "Seven", "Eight", "Nine"}
-                Dim Teens() As String = {"", _
-                "Eleven", "Twelve", "Thirteen", _
-                  "Fourteen", "Fifteen", _
+                Dim Teens() As String = {"",
+                "Eleven", "Twelve", "Thirteen",
+                  "Fourteen", "Fifteen",
                   "Sixteen", "Seventeen", "Eighteen", "Nineteen"}
-                Dim Tens() As String = {"", "Ten", _
-                "Twenty", "Thirty", _
-                  "Forty", "Fifty", "Sixty", _
+                Dim Tens() As String = {"", "Ten",
+                "Twenty", "Thirty",
+                  "Forty", "Fifty", "Sixty",
                   "Seventy", "Eighty", "Ninety"}
-                Dim HMBT() As String = {"", "", _
-                "Thousand", "Million", _
-                  "Billion", "Trillion", _
+                Dim HMBT() As String = {"", "",
+                "Thousand", "Million",
+                  "Billion", "Trillion",
                   "Quadrillion", "Quintillion"}
 
                 intAmount = eAmount
@@ -2282,7 +2296,7 @@ endWithRoll:
                 Dim nTen As Integer = intAmount \ 10 : intAmount = intAmount Mod 10
                 Dim nOne As Integer = intAmount \ 1
 
-                If nHundred > 0 Then wAmount = wAmount & _
+                If nHundred > 0 Then wAmount = wAmount &
                 Ones(nHundred) & " Hundred " 'This is for hundreds                
                 If nTen > 0 Then 'This is for tens and teens
                     If nTen = 1 And nOne > 0 Then 'This is for teens 
@@ -2295,10 +2309,10 @@ endWithRoll:
                     If nOne > 0 Then wAmount = wAmount & Ones(nOne) & " "
                 End If
                 wAmount = wAmount & HMBT(nSet) & " "
-                wAmount = AmountInWords(CStr(CLng(nAmount) - _
+                wAmount = AmountInWords(CStr(CLng(nAmount) -
                   (eAmount * multiplier)).Trim & tempDecValue, wAmount, nSet - 1)
             Else
-                If Val(nAmount) = 0 Then nAmount = nAmount & _
+                If Val(nAmount) = 0 Then nAmount = nAmount &
                 tempDecValue : tempDecValue = String.Empty
                 If (Math.Round(Val(nAmount), 2) * 100) > 0 Then wAmount = Trim(CStr(wAmount.Trim & " Pesos " + "& " + (nAmount * 100).ToString + "/100"))
             End If
@@ -2308,8 +2322,8 @@ endWithRoll:
         End Try
 
         'Trap null values
-        If IsNothing(wAmount) = True Then wAmount = String.Empty Else wAmount = _
-          IIf(InStr(wAmount.Trim.ToLower, "pesos"), _
+        If IsNothing(wAmount) = True Then wAmount = String.Empty Else wAmount =
+          IIf(InStr(wAmount.Trim.ToLower, "pesos"),
           wAmount.Trim, wAmount.Trim & " Pesos")
 
         'Display the result
@@ -2322,11 +2336,11 @@ endWithRoll:
 
         getFreezeMonth = 0
 
-        lsSQL = "SELECT sAcctNmbr, b.*" & _
-               " FROM MC_AR_Master a" & _
-                   " LEFT JOIN Branch_Lockdown_History b ON a.sBranchCd = b.sBranchCD" & _
-               " WHERE sAcctNmbr = " & strParm(fsAcctNmbr) & _
-                 " AND b.dDateFrom > a.dFirstPay" & _
+        lsSQL = "SELECT sAcctNmbr, b.*" &
+               " FROM MC_AR_Master a" &
+                   " LEFT JOIN Branch_Lockdown_History b ON a.sBranchCd = b.sBranchCD" &
+               " WHERE sAcctNmbr = " & strParm(fsAcctNmbr) &
+                 " AND b.dDateFrom > a.dFirstPay" &
                  " AND b.dDateThru < " & dateParm(fdTransact)
         loDta = p_oApp.ExecuteQuery(lsSQL)
 
@@ -2337,12 +2351,12 @@ endWithRoll:
 
         'kalyptus - 2020.08.06 09:18am
         'Remove Unfreezed month if client grab the promo
-        lsSQL = "SELECT DISTINCT a.sOthrInfo nUnfreezd, b.sMainInfo, b.sOthrInfo" & _
-               " FROM CCS_Promo_Master a" & _
-                    " LEFT JOIN CCS_Promo_Detail b ON a.sTransNox = b.sTransNox" & _
-               " WHERE a.sProgrmCD = '0001'" & _
-                 " AND b.sOthrInfo BETWEEN a.dDateFrom AND a.dDateThru" & _
-                 " AND b.sMainInfo = " & strParm(fsAcctNmbr) & _
+        lsSQL = "SELECT DISTINCT a.sOthrInfo nUnfreezd, b.sMainInfo, b.sOthrInfo" &
+               " FROM CCS_Promo_Master a" &
+                    " LEFT JOIN CCS_Promo_Detail b ON a.sTransNox = b.sTransNox" &
+               " WHERE a.sProgrmCD = '0001'" &
+                 " AND b.sOthrInfo BETWEEN a.dDateFrom AND a.dDateThru" &
+                 " AND b.sMainInfo = " & strParm(fsAcctNmbr) &
                  " AND b.sOthrInfo < " & dateParm(fdTransact)
         loDta = p_oApp.ExecuteQuery(lsSQL)
 

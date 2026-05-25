@@ -1539,19 +1539,22 @@ Public Class ARPayment_PR
             'End If
 
             ' compute the excess days for validation of rebates by user
-            If Day(p_oDTMstr(0).Item("dTransact")) > Day(loDta(0).Item("dFirstPay")) Then
-                lnExcessDay = DateDiff("d", DateSerial(Year(p_oDTMstr(0).Item("dTransact")), _
-                               Month(p_oDTMstr(0).Item("dTransact")), Day(loDta(0).Item("dFirstPay"))), _
-                               p_oDTMstr(0).Item("dTransact"))
-            Else
-                ldDueDate = DateSerial(Year(p_oDTMstr(0).Item("dTransact")), _
-                               Month(p_oDTMstr(0).Item("dTransact")) + 1, Day(loDta(0).Item("dFirstPay")))
-                If Month(DateAdd("m", 1, p_oDTMstr(0).Item("dTransact"))) <> Month(ldDueDate) Then
-                    ldDueDate = DateAdd("d", Day(ldDueDate) * -1, ldDueDate)
-                End If
+            'If Day(p_oDTMstr(0).Item("dTransact")) > Day(loDta(0).Item("dFirstPay")) Then
+            '    lnExcessDay = DateDiff("d", DateSerial(Year(p_oDTMstr(0).Item("dTransact")), _
+            '                   Month(p_oDTMstr(0).Item("dTransact")), Day(loDta(0).Item("dFirstPay"))), _
+            '                   p_oDTMstr(0).Item("dTransact"))
+            'Else
+            '    ldDueDate = DateSerial(Year(p_oDTMstr(0).Item("dTransact")), _
+            '                   Month(p_oDTMstr(0).Item("dTransact")) + 1, Day(loDta(0).Item("dFirstPay")))
+            '    If Month(DateAdd("m", 1, p_oDTMstr(0).Item("dTransact"))) <> Month(ldDueDate) Then
+            '        ldDueDate = DateAdd("d", Day(ldDueDate) * -1, ldDueDate)
+            '    End If
 
-                lnExcessDay = DateDiff("d", p_oDTMstr(0).Item("dTransact"), ldDueDate)
-            End If
+            '    lnExcessDay = DateDiff("d", p_oDTMstr(0).Item("dTransact"), ldDueDate)
+            'End If
+
+            lnExcessDay = CalculateExcessDays(p_oDTMstr(0).Item("dTransact"), loDta(0).Item("dFirstPay"))
+
             lnAmtDuex = (lnActTerm * loDta(0).Item("nMonAmort")) + _
                         loDta(0).Item("nDownPaym") + _
                         loDta(0).Item("nCashBalx") + _
@@ -1596,12 +1599,15 @@ Public Class ARPayment_PR
                             lnRebates = lnRebates + ((lnPaymTerm - lnTotlTerm) * loDta(0).Item("nRebatesx"))
                         End If
                     Else
-                        If lnExcessDay < 30 Then
+                        'Since it has no promo rebate then use the default rebate
+                        If lnExcessDay <= 30 Then
                             If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
                                 lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
                             Else
                                 lnRebates = 0
                             End If
+                        ElseIf Math.Abs(lnAmtDuex) >= loDta(0).Item("nMonAmort") Then
+                            lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
                         End If
                     End If
 
@@ -1611,6 +1617,17 @@ Public Class ARPayment_PR
         End With
 
         Return getRebates
+    End Function
+
+    Private Function CalculateExcessDays(transDate As Date, firstPayDate As Date) As Integer
+        If transDate.Day > firstPayDate.Day Then
+            Dim compareDate = New Date(transDate.Year, transDate.Month, firstPayDate.Day)
+            Return CInt((transDate - compareDate).TotalDays)
+        Else
+            Dim nextMonth = transDate.AddMonths(1)
+            Dim compareDate = New Date(nextMonth.Year, nextMonth.Month, firstPayDate.Day)
+            Return CInt((compareDate - transDate).TotalDays)
+        End If
     End Function
 
     Public Sub SearchBranch(ByVal fsValue As String _

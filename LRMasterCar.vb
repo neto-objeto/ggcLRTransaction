@@ -148,7 +148,6 @@ Public Class LRMasterCar
                 Index = LCase(Index)
                 Select Case Index
                     Case "sacctnmbr"
-                    Case "dtransact", "dfirstpay", "dlastpaym", "dclosedxx"
                         If Index = "dfirstpay" Then
                             p_oDTMaster(0).Item("dDueDatex") = DateAdd(DateInterval.Month, p_oDTMaster(0).Item("nAcctTerm") - 1, p_oDTMaster(0).Item("dFirstPay"))
                             RaiseEvent MasterRetrieved(12, p_oDTMaster(0).Item("dDueDatex"))
