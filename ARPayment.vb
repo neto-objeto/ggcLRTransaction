@@ -645,16 +645,24 @@ Public Class ARPayment
             Return False
         End If
 
-        If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED) Then
-            MsgBox("Request was already posted!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-            Return False
-        ElseIf p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
+        'If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED) Then
+        '    MsgBox("Request was already posted!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+        '    Return False
+        'ElseIf p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
+        '    MsgBox("Request was already cancelled!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+        '    Return False
+        'ElseIf p_oDTMstr(0).Item("cGCrdPstd") = "1" Then
+        '    MsgBox("GCard point was already posted! Please void the GCard transaction before continuing...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+        '    Return False
+        'End If
+
+        'mac 20263.05.31
+        If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
             MsgBox("Request was already cancelled!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
             Return False
-        ElseIf p_oDTMstr(0).Item("cGCrdPstd") = "1" Then
-            MsgBox("GCard point was already posted! Please void the GCard transaction before continuing...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-            Return False
         End If
+
+        'todo: add validation for area head approval to cancel the transaction
 
         Dim lsSQL As String
 
@@ -670,6 +678,22 @@ Public Class ARPayment
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
 
                 Return False
+            End If
+
+            'mac 2026.05.31
+            '   rollback online points entry
+            If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED) Then
+                If p_oDTMstr(0).Item("cTranType") = "2" Then
+                    If p_oOthersx.cDigitalx = "1" Then
+                        If Not OnlineEntryCancel() Then
+                            If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                            MsgBox("Unable to cancel online points.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+
+                            Return False
+                        End If
+                    End If
+                End If
             End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
@@ -1116,6 +1140,15 @@ Public Class ARPayment
         'run command
         Dim lsVal = p_oApp.ProductID & " " & p_oApp.UserID & " " & p_oOthersx.sGCardNox & " " & p_oOthersx.cDigitalx & " " & p_oDTMstr(0)("sReferNox") & " " & p_sSourceCd & " " & Format(p_oDTMstr(0)("dTransact"), "yyyy-MM-dd")
         RMJExecute("D:\GGC_Java_Systems\", "gcard-online-points-entry.bat", lsVal)
+
+        Return True
+    End Function
+
+    'mac 2026.05.31
+    Private Function OnlineEntryCancel() As Boolean
+        'run command
+        Dim lsVal = p_oApp.ProductID & " " & p_oApp.UserID & " " & p_oOthersx.sGCardNox & " " & p_oOthersx.cDigitalx & " " & p_oDTMstr(0)("sReferNox") & " " & p_sSourceCd & " " & Format(p_oDTMstr(0)("dTransact"), "yyyy-MM-dd")
+        RMJExecute("D:\GGC_Java_Systems\", "gcard-online-points-entry-cancel.bat", lsVal)
 
         Return True
     End Function
