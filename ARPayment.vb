@@ -651,15 +651,21 @@ Public Class ARPayment
         ElseIf p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
             MsgBox("Request was already cancelled!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
             Return False
-        ElseIf p_oDTMstr(0).Item("cGCrdPstd") = "1" Then
-            MsgBox("GCard point was already posted! Please void the GCard transaction before continuing...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-            Return False
         End If
+
+        'mac 2026.06-03
+        '   not needed since ang GCARD points encodin ay sa PostTranasaction() at hindi naman natin inaallow na icancel ang POSTED transaction
+        'If p_oDTMstr(0).Item("cGCrdPstd") = "1" Then
+        '    MsgBox("GCard point was already posted! Please void the GCard transaction before continuing...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+        '    Return False
+        'End If
+
 
         Dim lsSQL As String
 
         Try
             If p_sParent = "" Then p_oApp.BeginTransaction()
+
 
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED)
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
@@ -1118,6 +1124,14 @@ Public Class ARPayment
         RMJExecute("D:\GGC_Java_Systems\", "gcard-online-points-entry.bat", lsVal)
 
         Return True
+    End Function
+
+    'mac 2026-06-03
+    Private Function OnlineEntryCancel() As Boolean
+        'run command
+        Dim lsVal = p_oApp.ProductID & " " & p_oApp.UserID & " " & p_oOthersx.sGCardNox & " " & p_oOthersx.cDigitalx & " " & p_oDTMstr(0)("sReferNox") & " " & p_sSourceCd & " " & Format(p_oDTMstr(0)("dTransact"), "yyyy-MM-dd")
+
+        Return RMJExecute("D:\GGC_Java_Systems\", "gcard-online-points-entry-cancel.bat", lsVal) = 0
     End Function
 
     'mac 2024-02.22
