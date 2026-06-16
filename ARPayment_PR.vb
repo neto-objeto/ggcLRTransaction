@@ -613,6 +613,53 @@ Public Class ARPayment_PR
         Try
             If p_sParent = "" Then p_oApp.BeginTransaction()
 
+            Dim lsApprovedCD, lsApproveID, lsApproveName As String
+
+            If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
+                MsgBox("Approval Code needed!!!" & vbCrLf &
+                   "Please enter AH approval.", vbCritical, "Notice")
+            Else
+                MsgBox("Approval Code needed!!!" & vbCrLf &
+                   "Please enter MIS approval.", vbCritical, "Notice")
+            End If
+
+            If Not GetCodeApproval(p_oApp, lsApprovedCD, lsApproveID, lsApproveName) Then
+                MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
+                       "Verify entry then try again!", vbCritical, "Warning")
+                Return False
+            Else
+                If isValidApproveCode(
+                    CodeApproval.pxeMonthlyPaymentCancel,
+                    p_oApp.BranchCode,
+                    IIf(p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES, "0", "X"),
+                    p_oDTMstr(0).Item("dTransact"),
+                    p_oDTMstr(0).Item("sReferNox"),
+                    lsApprovedCD) Then
+
+                    lsSQL = "INSERT INTO xxxSCA_Usage" &
+                            " SET sTransNox = " & strParm(GetNextCode("xxxSCA_Usage", "sTransNox", True, p_oApp.Connection)) &
+                                ", sApprCode = " & strParm(lsApprovedCD) &
+                                ", sApproved = " & strParm(lsApproveID) &
+                                ", sSystemCD = " & strParm(CodeApproval.pxeMonthlyPaymentCancel) &
+                                ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                                ", sSourceCD = " & strParm("p") &
+                                ", sModified = " & strParm(p_oApp.UserID) &
+                                ", dModified = " & dateParm(p_oApp.getSysDate)
+
+                    If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                        MsgBox("Unable to save approval code usage.", vbCritical, "Warning")
+                        Return False
+                    End If
+
+                Else
+                    MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
+                       "Verify entry then try again!", vbCritical, "Warning")
+                    Return False
+                End If
+            End If
+
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED)
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
 

@@ -31,11 +31,12 @@
 '       Added Try/Catch statement on insert/update statements
 '€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€
 
-Imports MySql.Data.MySqlClient
+Imports System.Drawing
+Imports System.Reflection.Emit
 Imports ADODB
 Imports ggcAppDriver
 Imports ggcClient
-Imports System.Drawing
+Imports MySql.Data.MySqlClient
 Imports Newtonsoft.Json.Linq
 
 Public Class ARPayment
@@ -56,7 +57,7 @@ Public Class ARPayment
     Private Const p_sMsgHeadr As String = "LR Payment"
     Private Const p_sSourceCd As String = "M02910000004" 'G_Card_Points_Basis code for Monthly Payment
 
-    Public Event MasterRetrieved(ByVal Index As Integer, _
+    Public Event MasterRetrieved(ByVal Index As Integer,
                                   ByVal Value As Object)
 
     Public ReadOnly Property AppDriver() As ggcAppDriver.GRider
@@ -323,7 +324,7 @@ Public Class ARPayment
                     Case "scollname" '98  
                         getCollector(12, 98, value, False, False)
 
-                    Case "sclientnm", "saddressx", "npnvaluex", "ndownpaym", "ngrossprc", "nmonamort", "ncashbalx", "nacctterm", "nabalance", _
+                    Case "sclientnm", "saddressx", "npnvaluex", "ndownpaym", "ngrossprc", "nmonamort", "ncashbalx", "nacctterm", "nabalance",
                          "namtduexx", "xrebatesx", "sengineno", "sframenox", "smodelnme", "scolornme"
 
                     Case "dtransact"
@@ -504,7 +505,7 @@ Public Class ARPayment
     End Function
 
     'Public Function SearchTransaction(String, Boolean, Boolean=False)
-    Public Function SearchTransaction( _
+    Public Function SearchTransaction(
                         ByVal fsValue As String _
                       , Optional ByVal fbByCode As Boolean = False) As Boolean
 
@@ -543,7 +544,7 @@ Public Class ARPayment
                                         , False _
                                         , lsFilter _
                                         , "sReferNox»sClientNm»dTransact»sTransNox" _
-                                        , "Refer No»Client»Date»Trans No", _
+                                        , "Refer No»Client»Date»Trans No",
                                         , "a.sReferNox»b.sCompnyNm»a.dTransact»a.sTransNox" _
                                         , IIf(fbByCode, 0, 1))
         If IsNothing(loDta) Then
@@ -557,8 +558,8 @@ Public Class ARPayment
     'Public Function SaveTransaction
     'This object does not implement Update
     Public Function SaveTransaction() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or _
-                p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or
+                p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -603,17 +604,17 @@ Public Class ARPayment
 
             'check if it is an e-payment 
             If p_oOthersx.sEPCltIDx <> "" And p_oOthersx.nEPAmount > 0.0# Then
-                lsSQL = "INSERT INTO Other_Payment_Received SET" & _
-                        "  sTransNox = " & strParm(GetNextCode("Other_Payment_Received", "sTransNox", True, p_oApp.Connection, True, p_sBranchCd)) & _
-                        ", sClientID = " & strParm(p_oOthersx.sEPCltIDx) & _
-                        ", sReferNox = " & strParm(p_oOthersx.sEPReferN) & _
-                        ", nTotlAmnt = " & Master("namountxx") + Master("nintamtxx") + Master("nPenaltyX") & _
-                        ", nAmtPaidx = " & p_oOthersx.nEPAmount & _
-                        ", sTermCode = " & strParm(p_oOthersx.sEPTermID) & _
-                        ", sRemarksx = " & strParm(p_oOthersx.sEPRemrks) & _
-                        ", sSourceCd = " & strParm(p_sSystemCd) & _
-                        ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) & _
-                        ", cTranStat = '1'" & _
+                lsSQL = "INSERT INTO Other_Payment_Received SET" &
+                        "  sTransNox = " & strParm(GetNextCode("Other_Payment_Received", "sTransNox", True, p_oApp.Connection, True, p_sBranchCd)) &
+                        ", sClientID = " & strParm(p_oOthersx.sEPCltIDx) &
+                        ", sReferNox = " & strParm(p_oOthersx.sEPReferN) &
+                        ", nTotlAmnt = " & Master("namountxx") + Master("nintamtxx") + Master("nPenaltyX") &
+                        ", nAmtPaidx = " & p_oOthersx.nEPAmount &
+                        ", sTermCode = " & strParm(p_oOthersx.sEPTermID) &
+                        ", sRemarksx = " & strParm(p_oOthersx.sEPRemrks) &
+                        ", sSourceCd = " & strParm(p_sSystemCd) &
+                        ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                        ", cTranStat = '1'" &
                         ", dModified = " & dateParm(p_oApp.SysDate)
 
                 If p_oApp.Execute(lsSQL, "Other_Payment_Received", p_sBranchCd) <= 0 Then
@@ -638,36 +639,81 @@ Public Class ARPayment
 
     'Public Function CancelTransaction
     Public Function CancelTransaction() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
             Return False
         End If
 
-        'If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED) Then
-        '    MsgBox("Request was already posted!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-        '    Return False
-        'ElseIf p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
-        '    MsgBox("Request was already cancelled!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-        '    Return False
-        'ElseIf p_oDTMstr(0).Item("cGCrdPstd") = "1" Then
+        If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED) Then
+            MsgBox("Unable to cancel posted transaction!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+            Return False
+        ElseIf p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
+            MsgBox("Transaction was already cancelled!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+            Return False
+        End If
+
+        'mac 2026.06-03
+        '   not needed since ang GCARD points encodin ay sa PostTranasaction() at hindi naman natin inaallow na icancel ang POSTED transaction
+        'If p_oDTMstr(0).Item("cGCrdPstd") = "1" Then
         '    MsgBox("GCard point was already posted! Please void the GCard transaction before continuing...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
         '    Return False
         'End If
 
-        'mac 20263.05.31
-        If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
-            MsgBox("Request was already cancelled!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-            Return False
-        End If
-
-        'todo: add validation for area head approval to cancel the transaction
 
         Dim lsSQL As String
 
         Try
             If p_sParent = "" Then p_oApp.BeginTransaction()
+
+            Dim lsApprovedCD, lsApproveID, lsApproveName As String
+
+            If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
+                MsgBox("Approval Code needed!!!" & vbCrLf &
+                   "Please enter AH approval.", vbCritical, "Notice")
+            Else
+                MsgBox("Approval Code needed!!!" & vbCrLf &
+                   "Please enter MIS approval.", vbCritical, "Notice")
+            End If
+
+            If Not GetCodeApproval(p_oApp, lsApprovedCD, lsApproveID, lsApproveName) Then
+                MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
+                       "Verify entry then try again!", vbCritical, "Warning")
+                Return False
+            Else
+                If isValidApproveCode(
+                    CodeApproval.pxeMonthlyPaymentCancel,
+                    p_oApp.BranchCode,
+                    IIf(p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES, "0", "X"),
+                    p_oDTMstr(0).Item("dTransact"),
+                    p_oDTMstr(0).Item("sReferNox"),
+                    lsApprovedCD) Then
+
+                    lsSQL = "INSERT INTO xxxSCA_Usage" &
+                            " SET sTransNox = " & strParm(GetNextCode("xxxSCA_Usage", "sTransNox", True, p_oApp.Connection)) &
+                                ", sApprCode = " & strParm(lsApprovedCD) &
+                                ", sApproved = " & strParm(lsApproveID) &
+                                ", sSystemCD = " & strParm(CodeApproval.pxeMonthlyPaymentCancel) &
+                                ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                                ", sSourceCD = " & strParm("p") &
+                                ", sModified = " & strParm(p_oApp.UserID) &
+                                ", dModified = " & dateParm(p_oApp.getSysDate)
+
+                    If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                        MsgBox("Unable to save approval code usage.", vbCritical, "Warning")
+                        Return False
+                    End If
+
+                Else
+                    MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
+                       "Verify entry then try again!", vbCritical, "Warning")
+                    Return False
+                End If
+            End If
+
 
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED)
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
@@ -678,22 +724,6 @@ Public Class ARPayment
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
 
                 Return False
-            End If
-
-            'mac 2026.05.31
-            '   rollback online points entry
-            If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED) Then
-                If p_oDTMstr(0).Item("cTranType") = "2" Then
-                    If p_oOthersx.cDigitalx = "1" Then
-                        If Not OnlineEntryCancel() Then
-                            If p_sParent = "" Then p_oApp.RollBackTransaction()
-
-                            MsgBox("Unable to cancel online points.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-
-                            Return False
-                        End If
-                    End If
-                End If
             End If
 
             If p_sParent = "" Then p_oApp.CommitTransaction()
@@ -1144,13 +1174,12 @@ Public Class ARPayment
         Return True
     End Function
 
-    'mac 2026.05.31
+    'mac 2026-06-03
     Private Function OnlineEntryCancel() As Boolean
         'run command
         Dim lsVal = p_oApp.ProductID & " " & p_oApp.UserID & " " & p_oOthersx.sGCardNox & " " & p_oOthersx.cDigitalx & " " & p_oDTMstr(0)("sReferNox") & " " & p_sSourceCd & " " & Format(p_oDTMstr(0)("dTransact"), "yyyy-MM-dd")
-        RMJExecute("D:\GGC_Java_Systems\", "gcard-online-points-entry-cancel.bat", lsVal)
 
-        Return True
+        Return RMJExecute("D:\GGC_Java_Systems\", "gcard-online-points-entry-cancel.bat", lsVal) = 0
     End Function
 
     'mac 2024-02.22
