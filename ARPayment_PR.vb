@@ -31,6 +31,8 @@ Imports ADODB
 Imports ggcAppDriver
 Imports ggcClient
 Imports System.Drawing
+Imports System.Runtime.Remoting.Messaging
+Imports System.Security.Cryptography.X509Certificates
 
 Public Class ARPayment_PR
     Private p_oApp As GRider
@@ -48,7 +50,7 @@ Public Class ARPayment_PR
     Private Const p_sMasTable As String = "LR_Payment_Master_PR"
     Private Const p_sMsgHeadr As String = "LR Payment - PR"
 
-    Public Event MasterRetrieved(ByVal Index As Integer, _
+    Public Event MasterRetrieved(ByVal Index As Integer,
                                   ByVal Value As Object)
 
     Public ReadOnly Property AppDriver() As ggcAppDriver.GRider
@@ -313,7 +315,7 @@ Public Class ARPayment_PR
                         getPaidBy(6, 97, value, False, False)
                     Case "scollname" '98  
                         getCollector(12, 98, value, False, False)
-                    Case "sclientnm", "saddressx", "npnvaluex", "ndownpaym", "ngrossprc", "nmonamort", "ncashbalx", "nacctterm", "nabalance", _
+                    Case "sclientnm", "saddressx", "npnvaluex", "ndownpaym", "ngrossprc", "nmonamort", "ncashbalx", "nacctterm", "nabalance",
                          "namtduexx", "xrebatesx", "sengineno", "sframenox", "smodelnme", "scolornme"
                     Case "dtransact"
                         Master(p_oDTMstr.Columns(Index).Ordinal) = getValidDate(p_oApp, value)
@@ -451,7 +453,7 @@ Public Class ARPayment_PR
     End Function
 
     'Public Function SearchTransaction(String, Boolean, Boolean=False)
-    Public Function SearchTransaction( _
+    Public Function SearchTransaction(
                         ByVal fsValue As String _
                       , Optional ByVal fbByCode As Boolean = False) As Boolean
 
@@ -490,7 +492,7 @@ Public Class ARPayment_PR
                                         , False _
                                         , lsFilter _
                                         , "sReferNox»sClientNm»dTransact»sTransNox" _
-                                        , "Refer No»Client»Date»Trans No", _
+                                        , "Refer No»Client»Date»Trans No",
                                         , "a.sReferNox»b.sCompnyNm»a.dTransact»a.sTransNox" _
                                         , IIf(fbByCode, 0, 1))
         If IsNothing(loDta) Then
@@ -504,8 +506,8 @@ Public Class ARPayment_PR
     'Public Function SaveTransaction
     'This object does not implement Update
     Public Function SaveTransaction() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or _
-                p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_ADDNEW Or
+                p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -593,7 +595,7 @@ Public Class ARPayment_PR
 
     'Public Function CancelTransaction
     Public Function CancelTransaction() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -613,50 +615,71 @@ Public Class ARPayment_PR
         Try
             If p_sParent = "" Then p_oApp.BeginTransaction()
 
-            Dim lsApprovedCD, lsApproveID, lsApproveName As String
+            Select Case getDTRStatus()
+                Case xeTranStat.TRANS_OPEN
+                    If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
+                        lsSQL = "0"
+                    Else
+                        lsSQL = ""
+                    End If
+                Case xeTranStat.TRANS_CLOSED
+                    If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
+                        MsgBox("Unable to cancel printed transaction when DTR is already CONFIRMED.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                        Return False
+                    Else
+                        lsSQL = "X"
+                    End If
+                Case xeTranStat.TRANS_POSTED
+                    MsgBox("DTR is already POSTED. Unable to delete transaction.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                    Return False
+            End Select
 
-            If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
-                MsgBox("Approval Code needed!!!" & vbCrLf &
-                   "Please enter AH approval.", vbCritical, "Notice")
-            Else
-                MsgBox("Approval Code needed!!!" & vbCrLf &
-                   "Please enter MIS approval.", vbCritical, "Notice")
-            End If
+            If lsSQL = "0" Or lsSQL = "X" Then
+                Dim lsApprovedCD, lsApproveID, lsApproveName As String
 
-            If Not GetCodeApproval(p_oApp, lsApprovedCD, lsApproveID, lsApproveName) Then
-                MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
-                       "Verify entry then try again!", vbCritical, "Warning")
-                Return False
-            Else
-                If isValidApproveCode(
-                    CodeApproval.pxeMonthlyPaymentCancel,
-                    p_oApp.BranchCode,
-                    IIf(p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES, "0", "X"),
-                    p_oDTMstr(0).Item("dTransact"),
-                    p_oDTMstr(0).Item("sReferNox"),
-                    lsApprovedCD) Then
+                If lsSQL = "0" Then
+                    MsgBox("Approval Code needed!!!" & vbCrLf &
+                       "Please enter AH approval.", vbCritical, "Notice")
+                Else
+                    MsgBox("Approval Code needed!!!" & vbCrLf &
+                       "Please enter MIS approval.", vbCritical, "Notice")
+                End If
 
-                    lsSQL = "INSERT INTO xxxSCA_Usage" &
-                            " SET sTransNox = " & strParm(GetNextCode("xxxSCA_Usage", "sTransNox", True, p_oApp.Connection)) &
-                                ", sApprCode = " & strParm(lsApprovedCD) &
-                                ", sApproved = " & strParm(lsApproveID) &
-                                ", sSystemCD = " & strParm(CodeApproval.pxeMonthlyPaymentCancel) &
-                                ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
-                                ", sSourceCD = " & strParm("p") &
-                                ", sModified = " & strParm(p_oApp.UserID) &
-                                ", dModified = " & dateParm(p_oApp.getSysDate)
+                If Not GetCodeApproval(p_oApp, lsApprovedCD, lsApproveID, lsApproveName) Then
+                    MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
+                           "Verify entry then try again!", vbCritical, "Warning")
+                    Return False
+                Else
+                    If isValidApproveCode(
+                        CodeApproval.pxeMonthlyPaymentCancel,
+                        p_oApp.BranchCode,
+                        IIf(p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES, "0", "X"),
+                        p_oDTMstr(0).Item("dTransact"),
+                        p_oDTMstr(0).Item("sReferNox"),
+                        lsApprovedCD) Then
 
-                    If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
-                        If p_sParent = "" Then p_oApp.RollBackTransaction()
+                        lsSQL = "INSERT INTO xxxSCA_Usage" &
+                                " SET sTransNox = " & strParm(GetNextCode("xxxSCA_Usage", "sTransNox", True, p_oApp.Connection)) &
+                                    ", sApprCode = " & strParm(lsApprovedCD) &
+                                    ", sApproved = " & strParm(lsApproveID) &
+                                    ", sSystemCD = " & strParm(CodeApproval.pxeMonthlyPaymentCancel) &
+                                    ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                                    ", sSourceCD = " & strParm("p") &
+                                    ", sModified = " & strParm(p_oApp.UserID) &
+                                    ", dModified = " & dateParm(p_oApp.getSysDate)
 
-                        MsgBox("Unable to save approval code usage.", vbCritical, "Warning")
+                        If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                            If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                            MsgBox("Unable to save approval code usage.", vbCritical, "Warning")
+                            Return False
+                        End If
+
+                    Else
+                        MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
+                           "Verify entry then try again!", vbCritical, "Warning")
                         Return False
                     End If
-
-                Else
-                    MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
-                       "Verify entry then try again!", vbCritical, "Warning")
-                    Return False
                 End If
             End If
 
@@ -686,7 +709,7 @@ Public Class ARPayment_PR
     End Function
 
     Public Function PrintTrans() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -711,8 +734,8 @@ Public Class ARPayment_PR
             If p_sParent = "" Then p_oApp.BeginTransaction()
 
             Dim lsSQL As String
-            lsSQL = "UPDATE " & p_sMasTable & _
-                   " SET cPrintedx = " & strParm(xeLogical.YES) & _
+            lsSQL = "UPDATE " & p_sMasTable &
+                   " SET cPrintedx = " & strParm(xeLogical.YES) &
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
             If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
@@ -821,7 +844,7 @@ Public Class ARPayment_PR
 
     'Public Function PostTransaction()
     Public Function PostTransaction() As Boolean
-        If Not (p_nEditMode = xeEditMode.MODE_READY Or _
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
                 p_nEditMode = xeEditMode.MODE_UPDATE) Then
 
             MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
@@ -839,18 +862,18 @@ Public Class ARPayment_PR
         'kalyptus - 2017.03.10 03:53pm
         'Check if there are unposted payment for this account...
         Dim lsSQL As String
-        lsSQL = "SELECT sTransNox" & _
-               " FROM " & p_sMasTable & _
-               " WHERE sTransNox <> " & strParm(p_oDTMstr(0).Item("sTransNox")) & _
-                 " AND sAcctNmbr = " & strParm(p_oDTMstr(0).Item("sAcctNmbr")) & _
-                 " AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact")) & _
-                 " AND cPostedxx = '0'" & _
-                 " AND cPaymForm = '0'" & _
-               " UNION" & _
-               " SELECT sTransNox" & _
-               " FROM LR_Payment_Master" & _
-               " WHERE sAcctNmbr = " & strParm(p_oDTMstr(0).Item("sAcctNmbr")) & _
-                 " AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact")) & _
+        lsSQL = "SELECT sTransNox" &
+               " FROM " & p_sMasTable &
+               " WHERE sTransNox <> " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                 " AND sAcctNmbr = " & strParm(p_oDTMstr(0).Item("sAcctNmbr")) &
+                 " AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact")) &
+                 " AND cPostedxx = '0'" &
+                 " AND cPaymForm = '0'" &
+               " UNION" &
+               " SELECT sTransNox" &
+               " FROM LR_Payment_Master" &
+               " WHERE sAcctNmbr = " & strParm(p_oDTMstr(0).Item("sAcctNmbr")) &
+                 " AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact")) &
                  " AND cPostedxx = '0'"
 
         'she 2017-03-27 2:52 pm 
@@ -858,21 +881,21 @@ Public Class ARPayment_PR
         '" AND dTransact < " & dateParm(p_oDTMstr(0).Item("dTransact"))
         Dim loDta As DataTable = p_oApp.ExecuteQuery(lsSQL)
         If loDta.Rows.Count > 0 Then
-            MsgBox("There are unposted payment for this account!" & vbCrLf & _
+            MsgBox("There are unposted payment for this account!" & vbCrLf &
                    "Please post the transaction first...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
             Return False
         End If
 
         'Make sure to use CHECK CLEARING in posting a PR transaction using a check...
         '+++++++++++++++
-        lsSQL = "SELECT sTransNox, sReferNox, sSourceCD, nAmountxx" & _
-               " FROM Checks_Received" & _
-               " WHERE sReferNox = " & strParm(p_oDTMstr(0).Item("sTransNox")) & _
-                 " AND sSourceCD = 'ARPy'" & _
-               " UNION" & _
-               " SELECT sTransNox, sReferNox, sSourceCD, nAmountxx" & _
-               " FROM Checks_Received_Others" & _
-               " WHERE sReferNox = " & strParm(p_oDTMstr(0).Item("sTransNox")) & _
+        lsSQL = "SELECT sTransNox, sReferNox, sSourceCD, nAmountxx" &
+               " FROM Checks_Received" &
+               " WHERE sReferNox = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                 " AND sSourceCD = 'ARPy'" &
+               " UNION" &
+               " SELECT sTransNox, sReferNox, sSourceCD, nAmountxx" &
+               " FROM Checks_Received_Others" &
+               " WHERE sReferNox = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
                  " AND sSourceCD = 'ARPy'"
 
         Dim loDTChk As DataTable
@@ -923,9 +946,9 @@ Public Class ARPayment_PR
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED)
             p_oDTMstr(0).Item("dPostedxx") = p_oApp.getSysDate
 
-            lsSQL = "UPDATE " & p_sMasTable & _
-                   " SET cPostedxx = " & strParm(CStr(xeTranStat.TRANS_POSTED)) & _
-                      ", dPostedxx = " & dateParm(p_oDTMstr(0).Item("dPostedxx")) & _
+            lsSQL = "UPDATE " & p_sMasTable &
+                   " SET cPostedxx = " & strParm(CStr(xeTranStat.TRANS_POSTED)) &
+                      ", dPostedxx = " & dateParm(p_oDTMstr(0).Item("dPostedxx")) &
                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
 
             'mac 2020.11.19
@@ -1107,33 +1130,33 @@ Public Class ARPayment_PR
         End If
 
         Dim lsSQL As String
-        lsSQL = "SELECT" & _
-                       "  a.sAcctNmbr" & _
-                       ", b.sCompnyNm sClientNm" & _
-                       ", CONCAT(IF(IFNull(b.sHouseNox, '') = '', '', CONCAT(b.sHouseNox, ' ')), b.sAddressx, ', ', c.sTownName, ', ', d.sProvName, ' ', c.sZippCode) xAddressx" & _
-                       ", a.nPNValuex" & _
-                       ", a.nDownPaym" & _
-                       ", a.nGrossPrc" & _
-                       ", a.nMonAmort" & _
-                       ", a.nCashBalx" & _
-                       ", a.nAcctTerm" & _
-                       ", a.nABalance" & _
-                       ", a.nAmtDuexx" & _
-                       ", a.nRebatesx" & _
-                       ", a.sClientID" & _
-                       ", IFNULL(e.sEngineNo, '') sEngineNo" & _
-                       ", IFNULL(e.sFrameNox, '') sFrameNox" & _
-                       ", IFNULL(f.sModelNme, '') sModelNme" & _
-                       ", IFNULL(g.sColorNme, '') sColorNme" & _
-                       ", IFNULL(j.nAcctTerm, 0) nPromTerm" & _
-                       ", IFNULL(j.nRebatesx, 0) nPromRebt" & _
-               " FROM MC_AR_Master a" & _
-                " LEFT JOIN Client_Master b ON a.sClientID = b.sClientID" & _
-                " LEFT JOIN TownCity c ON b.sTownIDxx = c.sTownIDxx" & _
-                " LEFT JOIN Province d ON c.sProvIDxx = d.sProvIDxx" & _
-                " LEFT JOIN MC_Serial e ON a.sSerialID = e.sSerialID" & _
-                " LEFT JOIN MC_Model f ON e.sModelIDx = f.sModelIDx" & _
-                " LEFT JOIN Color g ON e.sColorIDx = g.sColorIDx" & _
+        lsSQL = "SELECT" &
+                       "  a.sAcctNmbr" &
+                       ", b.sCompnyNm sClientNm" &
+                       ", CONCAT(IF(IFNull(b.sHouseNox, '') = '', '', CONCAT(b.sHouseNox, ' ')), b.sAddressx, ', ', c.sTownName, ', ', d.sProvName, ' ', c.sZippCode) xAddressx" &
+                       ", a.nPNValuex" &
+                       ", a.nDownPaym" &
+                       ", a.nGrossPrc" &
+                       ", a.nMonAmort" &
+                       ", a.nCashBalx" &
+                       ", a.nAcctTerm" &
+                       ", a.nABalance" &
+                       ", a.nAmtDuexx" &
+                       ", a.nRebatesx" &
+                       ", a.sClientID" &
+                       ", IFNULL(e.sEngineNo, '') sEngineNo" &
+                       ", IFNULL(e.sFrameNox, '') sFrameNox" &
+                       ", IFNULL(f.sModelNme, '') sModelNme" &
+                       ", IFNULL(g.sColorNme, '') sColorNme" &
+                       ", IFNULL(j.nAcctTerm, 0) nPromTerm" &
+                       ", IFNULL(j.nRebatesx, 0) nPromRebt" &
+               " FROM MC_AR_Master a" &
+                " LEFT JOIN Client_Master b ON a.sClientID = b.sClientID" &
+                " LEFT JOIN TownCity c ON b.sTownIDxx = c.sTownIDxx" &
+                " LEFT JOIN Province d ON c.sProvIDxx = d.sProvIDxx" &
+                " LEFT JOIN MC_Serial e ON a.sSerialID = e.sSerialID" &
+                " LEFT JOIN MC_Model f ON e.sModelIDx = f.sModelIDx" &
+                " LEFT JOIN Color g ON e.sColorIDx = g.sColorIDx" &
                 " LEFT JOIN MC_AR_Rebate j ON a.sAcctNmbr = j.sAcctNmbr"
 
         'Salahin na agad ang mga account sa paghahanap pa lang ng Account Number para sa transaction 
@@ -1152,7 +1175,7 @@ Public Class ARPayment_PR
                                              , True _
                                              , fsValue _
                                              , "sAcctNmbr»sClientNm»xAddressx" _
-                                             , "Account No»Client»Address", _
+                                             , "Account No»Client»Address",
                                              , "a.sAcctNmbr»b.sCompnyNm»CONCAT(IF(IFNull(b.sHouseNox, '') = '', '', CONCAT(b.sHouseNox, ' ')), b.sAddressx, ', ', c.sTownName, ', ', d.sProvName, ' ', c.sZippCode)" _
                                              , IIf(fbIsCode, 0, 1))
             If IsNothing(loRow) Then
@@ -1307,9 +1330,9 @@ Public Class ARPayment_PR
             If loClient.OpenClient(fsValue) Then
                 p_oPaidBy = loClient
                 p_oDTMstr(0).Item("sPaidByID") = p_oPaidBy.Master("sClientID")
-                p_oOthersx.xPaidByxx = p_oPaidBy.Master("sLastName") & ", " & _
-                                       p_oPaidBy.Master("sFrstName") & _
-                                       IIf(p_oPaidBy.Master("sSuffixNm") = "", "", " " & p_oPaidBy.Master("sSuffixNm")) & " " & _
+                p_oOthersx.xPaidByxx = p_oPaidBy.Master("sLastName") & ", " &
+                                       p_oPaidBy.Master("sFrstName") &
+                                       IIf(p_oPaidBy.Master("sSuffixNm") = "", "", " " & p_oPaidBy.Master("sSuffixNm")) & " " &
                                        p_oPaidBy.Master("sMiddName")
             Else
                 p_oDTMstr(0).Item("sPaidByID") = ""
@@ -1325,9 +1348,9 @@ Public Class ARPayment_PR
             If loClient.ShowClient Then
                 p_oPaidBy = loClient
                 p_oDTMstr(0).Item("sPaidByID") = p_oPaidBy.Master("sClientID")
-                p_oOthersx.xPaidByxx = p_oPaidBy.Master("sLastName") & ", " & _
-                                       p_oPaidBy.Master("sFrstName") & _
-                                       IIf(p_oPaidBy.Master("sSuffixNm") = "", "", " " & p_oPaidBy.Master("sSuffixNm")) & " " & _
+                p_oOthersx.xPaidByxx = p_oPaidBy.Master("sLastName") & ", " &
+                                       p_oPaidBy.Master("sFrstName") &
+                                       IIf(p_oPaidBy.Master("sSuffixNm") = "", "", " " & p_oPaidBy.Master("sSuffixNm")) & " " &
                                        p_oPaidBy.Master("sMiddName")
             End If
         End If
@@ -1351,13 +1374,13 @@ Public Class ARPayment_PR
         End If
 
         Dim lsSQL As String
-        lsSQL = "SELECT" & _
-                       "  b.sClientID" & _
-                       ", b.sCompnyNm sCollName" & _
-               " FROM Employee_Master001 a" & _
-                " LEFT JOIN Client_Master b ON a.sEmployID = b.sClientID" & _
-               " WHERE a.cCollectr = '1'" & _
-                 " AND a.sBranchCD = " & strParm(p_sBranchCd) & _
+        lsSQL = "SELECT" &
+                       "  b.sClientID" &
+                       ", b.sCompnyNm sCollName" &
+               " FROM Employee_Master001 a" &
+                " LEFT JOIN Client_Master b ON a.sEmployID = b.sClientID" &
+               " WHERE a.cCollectr = '1'" &
+                 " AND a.sBranchCD = " & strParm(p_sBranchCd) &
         IIf(p_nEditMode = xeEditMode.MODE_ADDNEW, " AND a.cRecdStat = '1'", "")
 
         'Are we using like comparison or equality comparison
@@ -1367,7 +1390,7 @@ Public Class ARPayment_PR
                                              , True _
                                              , fsValue _
                                              , "sClientID»sCollName" _
-                                             , "Coll ID»Collector", _
+                                             , "Coll ID»Collector",
                                              , "b.sClientID»b.sCompnyNm" _
                                              , IIf(fbIsCode, 0, 1))
             If IsNothing(loRow) Then
@@ -1421,31 +1444,31 @@ Public Class ARPayment_PR
 
 
         If lnRebates > p_oDTMstr(0).Item("nRebatesx") Then
-            If MsgBox("Rebate given is LESSER than the supposed rebate." & vbCrLf & _
+            If MsgBox("Rebate given is LESSER than the supposed rebate." & vbCrLf &
                   "Continue Anyway?", vbQuestion + vbYesNo) <> vbYes Then
                 Return False
             End If
         ElseIf p_oDTMstr(0).Item("nRebatesx") > lnRebates Then
-            MsgBox("Rebate given to " & p_oDTMstr(0).Item("sReferNox") & " is GREATER than the supposed rebate." & vbCrLf & _
+            MsgBox("Rebate given to " & p_oDTMstr(0).Item("sReferNox") & " is GREATER than the supposed rebate." & vbCrLf &
                "You will be asked to enter the APPROVAL CODE given by an authorized personnel!", vbCritical, "Warning")
             If Not GetCodeApproval(p_oApp, lsApprovedCD, lsApproveID, lsApproveName) Then
-                MsgBox("Rebate given is GREATER than the supposed rebate." & vbCrLf & _
+                MsgBox("Rebate given is GREATER than the supposed rebate." & vbCrLf &
                    "Verify entry then try again!", vbCritical, "Warning")
                 Return False
             Else
-                If isValidApproveCode( _
-                   IIf(p_oDTMstr(0).Item("sCollIDxx") <> "", CodeApproval.pxeFieldRebate, CodeApproval.pxeOfficeRebate), _
-                   p_oApp.BranchCode, _
-                   Mid(lsApprovedCD, 4, 1), _
-                   p_oDTMstr(0).Item("dTransact"), _
-                   p_oDTMstr(0).Item("sReferNox"), _
+                If isValidApproveCode(
+                   IIf(p_oDTMstr(0).Item("sCollIDxx") <> "", CodeApproval.pxeFieldRebate, CodeApproval.pxeOfficeRebate),
+                   p_oApp.BranchCode,
+                   Mid(lsApprovedCD, 4, 1),
+                   p_oDTMstr(0).Item("dTransact"),
+                   p_oDTMstr(0).Item("sReferNox"),
                    lsApprovedCD) Then
 
                     p_oDTMstr(0).Item("sApproved") = lsApproveID
                     p_oDTMstr(0).Item("sAPprCode") = lsApprovedCD
 
                 Else
-                    MsgBox("Invalid APPROVAL CODE detected." & vbCrLf & _
+                    MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
                        "Verify entry then try again!", vbCritical, "Warning")
                     Return False
                 End If
@@ -1461,10 +1484,10 @@ Public Class ARPayment_PR
     Private Function isValidReceipt(ByVal fsValue As String) As Boolean
         Dim lsSQL As String
 
-        lsSQL = "SELECT * " & _
-            " FROM LR_Payment_Master_PR" & _
-            " WHERE sTransNox LIKE " & strParm(Left(p_oDTMstr(0).Item("sTransNox"), 6) + "%") & _
-            " AND sReferNox = " & strParm(fsValue) & _
+        lsSQL = "SELECT * " &
+            " FROM LR_Payment_Master_PR" &
+            " WHERE sTransNox LIKE " & strParm(Left(p_oDTMstr(0).Item("sTransNox"), 6) + "%") &
+            " AND sReferNox = " & strParm(fsValue) &
             " AND cPostedxx <> " & strParm(xeTranStat.TRANS_CANCELLED)
 
         Dim loRec As DataTable
@@ -1472,7 +1495,7 @@ Public Class ARPayment_PR
         loRec = p_oApp.ExecuteQuery(lsSQL)
 
         If loRec.Rows.Count > 0 Then
-            MsgBox("Duplicate Receipt Number Detected!!!" & vbCrLf & _
+            MsgBox("Duplicate Receipt Number Detected!!!" & vbCrLf &
                     "Verify your entry then try again!", vbCritical, "Warning")
             isValidReceipt = False
         Else
@@ -1489,14 +1512,14 @@ Public Class ARPayment_PR
         'Make sure to use CHECK CLEARING in posting a PR transaction using a check...
         '+++++++++++++++
         'Check if the PR is a Check transaction
-        lsSQL = "SELECT 'Check_Payments' sTableNme, sTransNox, sReferNox, nAmountxx, sRemarksx" & _
-               " FROM Check_Payments" & _
-               " WHERE sReferNox = " & strParm(p_oDTMstr(0).Item("sTransNox")) & _
-                 " AND sRemarksx LIKE 'arpy»%'" & _
-               " UNION" & _
-               " SELECT 'Check_Payments_Others' sTableNme, sTransNox, sReferNox, nAmountxx, sRemarksx" & _
-               " FROM Check_Payments_Others" & _
-               " WHERE sReferNox = " & strParm(p_oDTMstr(0).Item("sTransNox")) & _
+        lsSQL = "SELECT 'Check_Payments' sTableNme, sTransNox, sReferNox, nAmountxx, sRemarksx" &
+               " FROM Check_Payments" &
+               " WHERE sReferNox = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                 " AND sRemarksx LIKE 'arpy»%'" &
+               " UNION" &
+               " SELECT 'Check_Payments_Others' sTableNme, sTransNox, sReferNox, nAmountxx, sRemarksx" &
+               " FROM Check_Payments_Others" &
+               " WHERE sReferNox = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
                  " AND sRemarksx LIKE 'arpy»%'"
         Dim loDta As DataTable = p_oApp.ExecuteQuery(lsSQL)
 
@@ -1505,42 +1528,42 @@ Public Class ARPayment_PR
         'Was it saved in Check_Payments_Others
         If loDta(0).Item("sTableNme") = "Check_Payments_Others" Then
             'Delete Record from Check_Payments_Others
-            lsSQL = "DELETE FROM Check_Payments_Others" & _
-                   " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox")) & _
+            lsSQL = "DELETE FROM Check_Payments_Others" &
+                   " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox")) &
                      " AND sReferNox = " & strParm(loDta(0).Item("sReferNox"))
             p_oApp.Execute(lsSQL, "Check_Payments_Others")
 
             'Deduct amount from Check_Payments
-            lsSQL = "UPDATE Check_Payments " & _
-                   " SET nAmountxx = nAmountxx - " & loDta(0).Item("nAmountxx") & _
+            lsSQL = "UPDATE Check_Payments " &
+                   " SET nAmountxx = nAmountxx - " & loDta(0).Item("nAmountxx") &
                    " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox"))
             p_oApp.Execute(lsSQL, "Check_Payments")
         Else
             'Is the transaction amount the same with that of Check_Payments
             If p_oDTMstr(0).Item("nAmountxx") = loDta(0).Item("nAmountxx") Then
                 'Cancel Check payments - assume 1 check = 1 PR
-                lsSQL = "UPDATE Check_Payments" & _
-                       " SET cTranStat = '3'" & _
+                lsSQL = "UPDATE Check_Payments" &
+                       " SET cTranStat = '3'" &
                        " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox"))
                 p_oApp.Execute(lsSQL, "Check_Payments")
             Else
                 'Search another check record using the same Check No
-                lsSQL = "SELECT sReferNox, sRemarksx" & _
-                       " FROM Check_Payments_Others" & _
+                lsSQL = "SELECT sReferNox, sRemarksx" &
+                       " FROM Check_Payments_Others" &
                        " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox"))
                 Dim loDtx As DataTable = p_oApp.ExecuteQuery(lsSQL)
 
                 'Delete the check record found
-                lsSQL = "DELETE FROM Check_Payments_Others" & _
-                       " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox")) & _
+                lsSQL = "DELETE FROM Check_Payments_Others" &
+                       " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox")) &
                          " AND sReferNox = " & strParm(loDtx(0).Item("sReferNox"))
                 p_oApp.Execute(lsSQL, "Check_Payments_Others")
 
                 'Transfer the reference of the deleted record to the main check record 
-                lsSQL = "UPDATE Check_Payments " & _
-                       " SET nAmountxx = nAmountxx - " & loDta(0).Item("nAmountxx") & _
-                          ", sReferNox = " & strParm(loDtx(0).Item("sReferNox")) & _
-                          ", sRemarksx = " & strParm(loDtx(0).Item("sRemarksx")) & _
+                lsSQL = "UPDATE Check_Payments " &
+                       " SET nAmountxx = nAmountxx - " & loDta(0).Item("nAmountxx") &
+                          ", sReferNox = " & strParm(loDtx(0).Item("sReferNox")) &
+                          ", sRemarksx = " & strParm(loDtx(0).Item("sRemarksx")) &
                        " WHERE sTransNox = " & strParm(loDta(0).Item("sTransNox"))
                 p_oApp.Execute(lsSQL, "Check_Payments")
             End If
@@ -1572,7 +1595,7 @@ Public Class ARPayment_PR
             End If
 
 
-            lnActTerm = .getMonthTerm(loDta(0).Item("dFirstPay"), ldDueDate)
+            lnActTerm = .GetMonthTerm(loDta(0).Item("dFirstPay"), ldDueDate)
 
             'kalyptus - 2020.06.06 03:49pm
             'Replace the logic below
@@ -1602,13 +1625,13 @@ Public Class ARPayment_PR
 
             lnExcessDay = CalculateExcessDays(p_oDTMstr(0).Item("dTransact"), loDta(0).Item("dFirstPay"))
 
-            lnAmtDuex = (lnActTerm * loDta(0).Item("nMonAmort")) + _
-                        loDta(0).Item("nDownPaym") + _
-                        loDta(0).Item("nCashBalx") + _
+            lnAmtDuex = (lnActTerm * loDta(0).Item("nMonAmort")) +
+                        loDta(0).Item("nDownPaym") +
+                        loDta(0).Item("nCashBalx") +
                         loDta(0).Item("nDebtTotl")
-            lnAmtDuex = lnAmtDuex - (loDta(0).Item("nPaymTotl") + loDta(0).Item("nRebTotlx") + _
-                        p_oDTMstr(0).Item("nAmountxx") + p_oDTMstr(0).Item("nRebatesx") + _
-                        loDta(0).Item("nDownTotl") + loDta(0).Item("nCashTotl") + _
+            lnAmtDuex = lnAmtDuex - (loDta(0).Item("nPaymTotl") + loDta(0).Item("nRebTotlx") +
+                        p_oDTMstr(0).Item("nAmountxx") + p_oDTMstr(0).Item("nRebatesx") +
+                        loDta(0).Item("nDownTotl") + loDta(0).Item("nCashTotl") +
                         loDta(0).Item("nCredTotl"))
 
             'kalyptus-2022.10.22 04:08pm
@@ -1691,10 +1714,10 @@ Public Class ARPayment_PR
         End If
 
         Dim lsSQL As String
-        lsSQL = "SELECT" & _
-                       "  a.sBranchCD" & _
-                       ", a.sBranchNm" & _
-               " FROM Branch a" & _
+        lsSQL = "SELECT" &
+                       "  a.sBranchCD" &
+                       ", a.sBranchNm" &
+               " FROM Branch a" &
                IIf(fbIsCode = False, " WHERE a.cRecdStat = '1'", "")
 
         'Are we using like comparison or equality comparison
@@ -1704,7 +1727,7 @@ Public Class ARPayment_PR
                                              , True _
                                              , fsValue _
                                              , "sBranchCD»sBranchNm" _
-                                             , "ID»Company", _
+                                             , "ID»Company",
                                              , "a.sBranchCD»a.sBranchNm" _
                                              , IIf(fbIsCode, 0, 1))
             If IsNothing(loRow) Then
@@ -1738,42 +1761,42 @@ Public Class ARPayment_PR
     End Sub
 
     Private Function getSQ_Master() As String
-        Return "SELECT a.sTransNox" & _
-                    ", a.dTransact" & _
-                    ", a.cPaymForm" & _
-                    ", a.sReferNox" & _
-                    ", a.sAcctNmbr" & _
-                    ", a.sClientID" & _
-                    ", a.sPaidByID" & _
-                    ", a.sRemarksx" & _
-                    ", a.nAmountxx" & _
-                    ", a.nIntAmtxx" & _
-                    ", a.nRebatesx" & _
-                    ", a.nPenaltyx" & _
-                    ", a.sCollIDxx" & _
-                    ", a.sApproved" & _
-                    ", a.sAPprCode" & _
-                    ", a.cTranType" & _
-                    ", a.cPostedxx" & _
-                    ", a.dPostedxx" & _
-                    ", a.sSourceCd" & _
-                    ", a.sSourceNo" & _
-                    ", a.cPrintedx" & _
-                    ", a.cGCrdPstd" & _
-                    ", a.sModified" & _
-                    ", a.dModified" & _
-                " FROM " & p_sMasTable & " a" & _
+        Return "SELECT a.sTransNox" &
+                    ", a.dTransact" &
+                    ", a.cPaymForm" &
+                    ", a.sReferNox" &
+                    ", a.sAcctNmbr" &
+                    ", a.sClientID" &
+                    ", a.sPaidByID" &
+                    ", a.sRemarksx" &
+                    ", a.nAmountxx" &
+                    ", a.nIntAmtxx" &
+                    ", a.nRebatesx" &
+                    ", a.nPenaltyx" &
+                    ", a.sCollIDxx" &
+                    ", a.sApproved" &
+                    ", a.sAPprCode" &
+                    ", a.cTranType" &
+                    ", a.cPostedxx" &
+                    ", a.dPostedxx" &
+                    ", a.sSourceCd" &
+                    ", a.sSourceNo" &
+                    ", a.cPrintedx" &
+                    ", a.cGCrdPstd" &
+                    ", a.sModified" &
+                    ", a.dModified" &
+                " FROM " & p_sMasTable & " a" &
                 " WHERE a.cTranType = " & strParm(p_cTranType)
     End Function
 
     Private Function getSQ_Browse() As String
-        Return "SELECT a.sTransNox" & _
-                    ", a.sReferNox" & _
-                    ", b.sCompnyNm sClientNm" & _
-                    ", a.dTransact" & _
-              " FROM " & p_sMasTable & " a" & _
-                    ", Client_Master b" & _
-              " WHERE a.sClientID = b.sClientID" & _
+        Return "SELECT a.sTransNox" &
+                    ", a.sReferNox" &
+                    ", b.sCompnyNm sClientNm" &
+                    ", a.dTransact" &
+              " FROM " & p_sMasTable & " a" &
+                    ", Client_Master b" &
+              " WHERE a.sClientID = b.sClientID" &
                 " AND a.cTranType = " & strParm(p_cTranType)
     End Function
 
@@ -1790,28 +1813,28 @@ Public Class ARPayment_PR
             Dim intAmount As Long = nAmount
             If intAmount > 0 Then
                 nSet = IIf((intAmount.ToString.Trim.Length / 3) _
-                 > (CLng(intAmount.ToString.Trim.Length / 3)), _
-                  CLng(intAmount.ToString.Trim.Length / 3) + 1, _
+                 > (CLng(intAmount.ToString.Trim.Length / 3)),
+                  CLng(intAmount.ToString.Trim.Length / 3) + 1,
                    CLng(intAmount.ToString.Trim.Length / 3))
-                Dim eAmount As Long = Microsoft.VisualBasic.Left(intAmount.ToString.Trim, _
+                Dim eAmount As Long = Microsoft.VisualBasic.Left(intAmount.ToString.Trim,
                   (intAmount.ToString.Trim.Length - ((nSet - 1) * 3)))
                 Dim multiplier As Long = 10 ^ (((nSet - 1) * 3))
 
-                Dim Ones() As String = _
-                {"", "One", "Two", "Three", _
-                  "Four", "Five", _
+                Dim Ones() As String =
+                {"", "One", "Two", "Three",
+                  "Four", "Five",
                   "Six", "Seven", "Eight", "Nine"}
-                Dim Teens() As String = {"", _
-                "Eleven", "Twelve", "Thirteen", _
-                  "Fourteen", "Fifteen", _
+                Dim Teens() As String = {"",
+                "Eleven", "Twelve", "Thirteen",
+                  "Fourteen", "Fifteen",
                   "Sixteen", "Seventeen", "Eighteen", "Nineteen"}
-                Dim Tens() As String = {"", "Ten", _
-                "Twenty", "Thirty", _
-                  "Forty", "Fifty", "Sixty", _
+                Dim Tens() As String = {"", "Ten",
+                "Twenty", "Thirty",
+                  "Forty", "Fifty", "Sixty",
                   "Seventy", "Eighty", "Ninety"}
-                Dim HMBT() As String = {"", "", _
-                "Thousand", "Million", _
-                  "Billion", "Trillion", _
+                Dim HMBT() As String = {"", "",
+                "Thousand", "Million",
+                  "Billion", "Trillion",
                   "Quadrillion", "Quintillion"}
 
                 intAmount = eAmount
@@ -1820,7 +1843,7 @@ Public Class ARPayment_PR
                 Dim nTen As Integer = intAmount \ 10 : intAmount = intAmount Mod 10
                 Dim nOne As Integer = intAmount \ 1
 
-                If nHundred > 0 Then wAmount = wAmount & _
+                If nHundred > 0 Then wAmount = wAmount &
                 Ones(nHundred) & " Hundred " 'This is for hundreds                
                 If nTen > 0 Then 'This is for tens and teens
                     If nTen = 1 And nOne > 0 Then 'This is for teens 
@@ -1833,10 +1856,10 @@ Public Class ARPayment_PR
                     If nOne > 0 Then wAmount = wAmount & Ones(nOne) & " "
                 End If
                 wAmount = wAmount & HMBT(nSet) & " "
-                wAmount = AmountInWords(CStr(CLng(nAmount) - _
+                wAmount = AmountInWords(CStr(CLng(nAmount) -
                   (eAmount * multiplier)).Trim & tempDecValue, wAmount, nSet - 1)
             Else
-                If Val(nAmount) = 0 Then nAmount = nAmount & _
+                If Val(nAmount) = 0 Then nAmount = nAmount &
                 tempDecValue : tempDecValue = String.Empty
                 If (Math.Round(Val(nAmount), 2) * 100) > 0 Then wAmount = Trim(CStr(wAmount.Trim & " Pesos " + "& " + (nAmount * 100).ToString + "/100"))
             End If
@@ -1846,8 +1869,8 @@ Public Class ARPayment_PR
         End Try
 
         'Trap null values
-        If IsNothing(wAmount) = True Then wAmount = String.Empty Else wAmount = _
-          IIf(InStr(wAmount.Trim.ToLower, "pesos"), _
+        If IsNothing(wAmount) = True Then wAmount = String.Empty Else wAmount =
+          IIf(InStr(wAmount.Trim.ToLower, "pesos"),
           wAmount.Trim, wAmount.Trim & " Pesos")
 
         'Display the result
@@ -1860,11 +1883,11 @@ Public Class ARPayment_PR
 
         getFreezeMonth = 0
 
-        lsSQL = "SELECT sAcctNmbr, b.*" & _
-               " FROM MC_AR_Master a" & _
-                   " LEFT JOIN Branch_Lockdown_History b ON a.sBranchCd = b.sBranchCD" & _
-               " WHERE sAcctNmbr = " & strParm(fsAcctNmbr) & _
-                 " AND b.dDateFrom > a.dFirstPay" & _
+        lsSQL = "SELECT sAcctNmbr, b.*" &
+               " FROM MC_AR_Master a" &
+                   " LEFT JOIN Branch_Lockdown_History b ON a.sBranchCd = b.sBranchCD" &
+               " WHERE sAcctNmbr = " & strParm(fsAcctNmbr) &
+                 " AND b.dDateFrom > a.dFirstPay" &
                  " AND b.dDateThru < " & dateParm(fdTransact)
         loDta = p_oApp.ExecuteQuery(lsSQL)
 
@@ -1874,12 +1897,12 @@ Public Class ARPayment_PR
         Next
         'kalyptus - 2020.08.06 09:18am
         'Remove Unfreezed month if client grab the promo
-        lsSQL = "SELECT DISTINCT a.sOthrInfo nUnfreezd, b.sMainInfo, b.sOthrInfo" & _
-               " FROM CCS_Promo_Master a" & _
-                    " LEFT JOIN CCS_Promo_Detail b ON a.sTransNox = b.sTransNox" & _
-               " WHERE a.sProgrmCD = '0001'" & _
-                 " AND b.sOthrInfo BETWEEN a.dDateFrom AND a.dDateThru" & _
-                 " AND b.sMainInfo = " & strParm(fsAcctNmbr) & _
+        lsSQL = "SELECT DISTINCT a.sOthrInfo nUnfreezd, b.sMainInfo, b.sOthrInfo" &
+               " FROM CCS_Promo_Master a" &
+                    " LEFT JOIN CCS_Promo_Detail b ON a.sTransNox = b.sTransNox" &
+               " WHERE a.sProgrmCD = '0001'" &
+                 " AND b.sOthrInfo BETWEEN a.dDateFrom AND a.dDateThru" &
+                 " AND b.sMainInfo = " & strParm(fsAcctNmbr) &
                  " AND b.sOthrInfo < " & dateParm(fdTransact)
         loDta = p_oApp.ExecuteQuery(lsSQL)
 
@@ -1887,6 +1910,22 @@ Public Class ARPayment_PR
             getFreezeMonth = getFreezeMonth - Val(loDta(lnCtr).Item("nUnfreezd"))
         Next
 
+    End Function
+
+    Private Function getDTRStatus() As String
+        Dim lsSQL As String
+        Dim loDta As DataTable
+
+        lsSQL = "SELECT cPostedxx FROM DTR_Summary WHERE sBranchCd = " & strParm(p_oApp.BranchCode) &
+                  " AND sTranDate = " & strParm(Format(Master("dTransact"), "YYYYMMDD"))
+
+        loDta = p_oApp.ExecuteQuery(lsSQL)
+
+        If loDta.Rows.Count <= 0 Then
+            Return xeTranStat.TRANS_UNKNOWN
+        Else
+            Return loDta(0).Item("cPostedxx")
+        End If
     End Function
 
     Public Sub New(ByVal foRider As GRider)
