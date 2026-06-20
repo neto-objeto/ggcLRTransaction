@@ -50,6 +50,7 @@ Public Class ARTrans
     Private p_sCollctID As String
 
     Private p_bIsOffice As Boolean
+    Private p_bReverse As Boolean
 
     Private p_sSourceNo As String
     Private p_cTrantype As String
@@ -115,8 +116,8 @@ Public Class ARTrans
         End Set
     End Property
 
-    Public Function MonthlyPayment( _
-         SourceNo As String, _
+    Public Function MonthlyPayment(
+         SourceNo As String,
          OfficeTrans As Boolean) As Boolean
 
         p_bIsOffice = OfficeTrans
@@ -124,6 +125,16 @@ Public Class ARTrans
         p_cTrantype = "p"
 
         Return SaveTransaction()
+    End Function
+
+    Public Function MonthlyPayment(
+         SourceNo As String,
+         OfficeTrans As Boolean,
+         Optional Reverse As Boolean = False) As Boolean
+
+        p_bReverse = Reverse
+
+        Return MonthlyPayment(SourceNo, OfficeTrans)
     End Function
 
     Public Function CashBalance( _
@@ -160,10 +171,9 @@ Public Class ARTrans
     End Function
 
     Private Function SaveTransaction() As Boolean
-
         'Check validity of transaction amount
         If p_nTranAmtx + p_nPenaltyx = 0 Then
-            MsgBox("Invalid Transaction Amount Detected!" & vbCrLf & _
+            MsgBox("Invalid Transaction Amount Detected!" & vbCrLf &
                      "Verify your Entry then Try Again!", vbCritical, "Warning")
             Return False
         End If
@@ -171,7 +181,7 @@ Public Class ARTrans
         'Check validity of collector
         If Not p_bIsOffice Then
             If p_sCollctID = "" Then
-                MsgBox("Field Collection has No Valid Collector" & vbCrLf & _
+                MsgBox("Field Collection has No Valid Collector" & vbCrLf &
                       "Verify your Entry then Try Again!", vbCritical, "Warning")
                 Return False
             End If
@@ -185,6 +195,8 @@ Public Class ARTrans
         Try
             'Load the record of the account
             p_oDTMstr = GetMaster()
+
+            If p_bReverse Then Return VoidTransaction()
 
             'Check for the dLastPaym since we will not allow transactions below the last payment date
             'she 2017-02-23
@@ -200,38 +212,38 @@ Public Class ARTrans
             'Create the SQL Statement to insert the transaction to the LR_Ledger
             Dim lsSQLLdgr As String
 
-            lsSQLLdgr = "INSERT INTO " & p_sDtlTable & " SET" & _
-                                    "  sAcctNmbr = " & strParm(p_sAcctNmbr) & _
-                                    ", sBranchCd = " & strParm(p_sBranchCD) & _
-                                    ", nEntryNox = " & p_oDTMstr(0).Item("nLedgerNo") + 1 & _
-                                    ", dTransact = " & dateParm(p_dTransact) & _
-                                    ", cOffPaymx = " & strParm(IIf(p_bIsOffice, "3", "2")) & _
-                                    ", sCollIDxx = " & strParm(p_sCollctID) & _
-                                    ", sORNoxxxx = " & strParm(p_sReferNox) & _
-                                    ", cTrantype = " & strParm(p_cTrantype) & _
-                                    ", sRemarksx = " & strParm(Left(p_sRemarksx, 64)) & _
-                                    ", nTranAmtx = " & p_nTranAmtx & _
-                                    ", nDebitAmt = " & 0 & _
-                                    ", nOthersxx = " & p_nPenaltyx & _
-                                    ", nRebatesx = " & p_nRebatesx & _
-                                    ", nABalance = " & p_oDTMstr(0).Item("nABalance") & _
-                                    ", nMonDelay = " & getDelay(p_oDTMstr, p_dTransact) & _
+            lsSQLLdgr = "INSERT INTO " & p_sDtlTable & " SET" &
+                                    "  sAcctNmbr = " & strParm(p_sAcctNmbr) &
+                                    ", sBranchCd = " & strParm(p_sBranchCD) &
+                                    ", nEntryNox = " & p_oDTMstr(0).Item("nLedgerNo") + 1 &
+                                    ", dTransact = " & dateParm(p_dTransact) &
+                                    ", cOffPaymx = " & strParm(IIf(p_bIsOffice, "3", "2")) &
+                                    ", sCollIDxx = " & strParm(p_sCollctID) &
+                                    ", sORNoxxxx = " & strParm(p_sReferNox) &
+                                    ", cTrantype = " & strParm(p_cTrantype) &
+                                    ", sRemarksx = " & strParm(Left(p_sRemarksx, 64)) &
+                                    ", nTranAmtx = " & p_nTranAmtx &
+                                    ", nDebitAmt = " & 0 &
+                                    ", nOthersxx = " & p_nPenaltyx &
+                                    ", nRebatesx = " & p_nRebatesx &
+                                    ", nABalance = " & p_oDTMstr(0).Item("nABalance") &
+                                    ", nMonDelay = " & getDelay(p_oDTMstr, p_dTransact) &
                                     ", dModified = " & dateParm(p_oApp.getSysDate)
 
 
             'Create SQL Statement that will update the LR_Master
             Dim lsSQLMstr As String
-            lsSQLMstr = "UPDATE " & p_sMasTable & _
-                       " SET nPaymTotl = nPaymTotl + " & p_nPaymTotl & _
-                          ", nPenTotlx = nPenTotlx + " & p_nPenaltyx & _
-                          ", nDownTotl = nDownTotl + " & p_nDownTotl & _
-                          ", nCashTotl = nCashTotl + " & p_nCashTotl & _
-                          ", nRebTotlx = nRebTotlx + " & p_nRebatesx & _
-                          ", nCredTotl = nCredTotl + " & p_nCredTotl & _
-                          ", nABalance = nABalance - " & (p_nTranAmtx + p_nRebatesx) & _
-                          ", nLastPaym = " & (p_nTranAmtx + p_nRebatesx) & _
-                          ", dLastPaym = " & dateParm(p_dTransact) & _
-                          ", nLedgerNo = " & (p_oDTMstr(0).Item("nLedgerNo") + 1) & _
+            lsSQLMstr = "UPDATE " & p_sMasTable &
+                       " SET nPaymTotl = nPaymTotl + " & p_nPaymTotl &
+                          ", nPenTotlx = nPenTotlx + " & p_nPenaltyx &
+                          ", nDownTotl = nDownTotl + " & p_nDownTotl &
+                          ", nCashTotl = nCashTotl + " & p_nCashTotl &
+                          ", nRebTotlx = nRebTotlx + " & p_nRebatesx &
+                          ", nCredTotl = nCredTotl + " & p_nCredTotl &
+                          ", nABalance = nABalance - " & (p_nTranAmtx + p_nRebatesx) &
+                          ", nLastPaym = " & (p_nTranAmtx + p_nRebatesx) &
+                          ", dLastPaym = " & dateParm(p_dTransact) &
+                          ", nLedgerNo = " & (p_oDTMstr(0).Item("nLedgerNo") + 1) &
                        " WHERE sAcctNmbr = " & strParm(p_sAcctNmbr)
 
 
@@ -241,7 +253,7 @@ Public Class ARTrans
             If p_oApp.Execute(lsSQLMstr, p_sMasTable) <= 0 Then Return False
 
             If p_oDTMstr(0).Item("cAcctStat") = xeActStatImpounded Then
-                If MsgBox("Unit is Currently Impounded!!!" & vbCrLf & _
+                If MsgBox("Unit is Currently Impounded!!!" & vbCrLf &
                          "Released Motorcycle Now???", vbCritical + vbYesNo, "Confirm") = vbYes Then
                     If ReleaseImpound() = False Then Return False
                 End If
@@ -670,12 +682,21 @@ Public Class ARTrans
             loData = p_oApp.ExecuteQuery(lsSQL)
 
             If loData.Rows.Count > 0 Then
-                'Tagged the account as paid if not yet tagged as paid
-                If loData(0).Item("cCollStat") <> "3" Then
-                    lsSQL = "UPDATE LR_Collection_Unit SET" & _
-                                 "  cCollStat = '3'" & _
-                           " WHERE sAcctNmbr = " & strParm(fsAcctNmbr)
-                    p_oApp.Execute(lsSQL, "LR_Collection_Unit")
+                If p_bReverse Then
+                    If loData(0).Item("cCollStat") = "3" Then
+                        lsSQL = "UPDATE LR_Collection_Unit SET" &
+                                     "  cCollStat = '0'" &
+                               " WHERE sAcctNmbr = " & strParm(fsAcctNmbr)
+                        p_oApp.Execute(lsSQL, "LR_Collection_Unit")
+                    End If
+                Else
+                    'Tagged the account as paid if not yet tagged as paid
+                    If loData(0).Item("cCollStat") <> "3" Then
+                        lsSQL = "UPDATE LR_Collection_Unit SET" &
+                                     "  cCollStat = '3'" &
+                               " WHERE sAcctNmbr = " & strParm(fsAcctNmbr)
+                        p_oApp.Execute(lsSQL, "LR_Collection_Unit")
+                    End If
                 End If
             End If
         Catch ex As Exception
@@ -718,9 +739,67 @@ Public Class ARTrans
         Next
     End Function
 
+    Private Function VoidTransaction() As Boolean
+        Dim lsSQL As String
+        Dim loData As DataTable
+
+        Try
+            ' 1. Load the ledger entry to be voided
+            lsSQL = "SELECT * FROM " & p_sDtlTable &
+                    " WHERE sAcctNmbr = " & strParm(p_sAcctNmbr) &
+                        " AND dTransact = " & dateParm(p_dTransact) &
+                        " AND sORNoxxxx = " & strParm(p_sReferNox) &
+                        " AND cTrantype = " & strParm(p_cTrantype)
+
+            loData = p_oApp.ExecuteQuery(lsSQL)
+
+            If loData.Rows.Count = 0 Then
+                MsgBox("Ledger entry not found!", vbCritical, "Warning")
+                Return False
+            End If
+
+            ' 2. Reverse the effect on the master record
+            Dim lnTranAmtx As Decimal = loData(0).Item("nTranAmtx")
+            Dim lnRebatesx As Decimal = loData(0).Item("nRebatesx")
+            Dim lnPenaltyx As Decimal = loData(0).Item("nOthersxx")
+            Dim lsTranType As String = loData(0).Item("cTranType")
+
+            Dim lsSQLMstr As String = "UPDATE " & p_sMasTable & " SET" &
+                                            "  nABalance = nABalance + " & (lnTranAmtx + lnRebatesx) &
+                                            ", nPaymTotl = nPaymTotl - " & IIf(lsTranType = "p", lnTranAmtx, 0) &
+                                            ", nCashTotl = nCashTotl - " & IIf(lsTranType = "b", lnTranAmtx, 0) &
+                                            ", nDownTotl = nDownTotl - " & IIf(lsTranType = "d", lnTranAmtx, 0) &
+                                            ", nCredTotl = nCredTotl - " & IIf(lsTranType = "c", lnTranAmtx, 0) &
+                                            ", nRebTotlx = nRebTotlx - " & lnRebatesx &
+                                            ", nPenTotlx = nPenTotlx - " & lnPenaltyx &
+                                        " WHERE sAcctNmbr = " & strParm(p_sAcctNmbr)
+
+            ' 3. Delete the ledger entry
+            Dim lsSQLDel As String = "DELETE FROM " & p_sDtlTable &
+                                        " WHERE sAcctNmbr = " & strParm(p_sAcctNmbr) &
+                                            " AND dTransact = " & dateParm(p_dTransact) &
+                                            " AND sORNoxxxx = " & strParm(p_sReferNox) &
+                                            " AND cTrantype = " & strParm(p_cTrantype)
+
+            ' 4. Execute inside a transaction
+            If p_oApp.Execute(lsSQLMstr, p_sMasTable) <= 0 Then
+                Return False
+            End If
+
+            If p_oApp.Execute(lsSQLDel, p_sDtlTable) <= 0 Then
+                Return False
+            End If
+        Catch ex As Exception
+            MsgBox("Error in voiding/cancelling transaction: " & ex.Message, vbCritical, "Error")
+            Return False
+        End Try
+
+        Return True
+    End Function
 
     Public Sub New(ByVal foRider As GRider)
         p_oApp = foRider
+        p_bReverse = False
     End Sub
 
     Protected Overrides Sub Finalize()

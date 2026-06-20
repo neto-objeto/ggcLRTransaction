@@ -610,76 +610,83 @@ Public Class ARPayment_PR
             Return False
         End If
 
-        Dim lsSQL As String
+        Dim lsSQL As String = ""
+        Dim lsCode As String = ""
 
         Try
-            If p_sParent = "" Then p_oApp.BeginTransaction()
-
             Select Case getDTRStatus()
                 Case xeTranStat.TRANS_OPEN
                     If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
-                        lsSQL = "0"
+                        lsCode = "0"
                     Else
-                        lsSQL = ""
+                        lsCode = "X"
                     End If
                 Case xeTranStat.TRANS_CLOSED
                     If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
-                        MsgBox("Unable to cancel printed transaction when DTR is already CONFIRMED.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                        MsgBox("Unable to CANCEL Printed Transactions when DTR is already CLOSED.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
                         Return False
                     Else
-                        lsSQL = "X"
+                        If Not hasUnencoded() Then
+                            MsgBox("Unable to CANCEL Transactions when DTR is already CLOSED and no unencoded transaction.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                            Return False
+                        End If
+
+                        lsCode = "X"
                     End If
                 Case xeTranStat.TRANS_POSTED
                     MsgBox("DTR is already POSTED. Unable to delete transaction.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
                     Return False
             End Select
 
-            If lsSQL = "0" Or lsSQL = "X" Then
+            If lsCode = "0" Or lsCode = "X" Then
                 Dim lsApprovedCD, lsApproveID, lsApproveName As String
 
-                If lsSQL = "0" Then
+                If lsCode = "0" Then
                     MsgBox("Approval Code needed!!!" & vbCrLf &
-                       "Please enter AH approval.", vbCritical, "Notice")
+                           "Please enter AH approval.", vbCritical, "Notice")
                 Else
                     MsgBox("Approval Code needed!!!" & vbCrLf &
-                       "Please enter MIS approval.", vbCritical, "Notice")
+                           "Please enter MIS approval.", vbCritical, "Notice")
                 End If
 
                 If Not GetCodeApproval(p_oApp, lsApprovedCD, lsApproveID, lsApproveName) Then
                     MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
-                           "Verify entry then try again!", vbCritical, "Warning")
+                               "Verify entry then try again!", vbCritical, "Warning")
                     Return False
                 Else
                     If isValidApproveCode(
-                        CodeApproval.pxeMonthlyPaymentCancel,
-                        p_oApp.BranchCode,
-                        IIf(p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES, "0", "X"),
-                        p_oDTMstr(0).Item("dTransact"),
-                        p_oDTMstr(0).Item("sReferNox"),
-                        lsApprovedCD) Then
+                            CodeApproval.pxeMonthlyPaymentCancel,
+                            p_oApp.BranchCode,
+                            IIf(p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES, "0", "X"),
+                            p_oDTMstr(0).Item("dTransact"),
+                            p_oDTMstr(0).Item("sReferNox"),
+                            lsApprovedCD) Then
 
                         lsSQL = "INSERT INTO xxxSCA_Usage" &
-                                " SET sTransNox = " & strParm(GetNextCode("xxxSCA_Usage", "sTransNox", True, p_oApp.Connection)) &
-                                    ", sApprCode = " & strParm(lsApprovedCD) &
-                                    ", sApproved = " & strParm(lsApproveID) &
-                                    ", sSystemCD = " & strParm(CodeApproval.pxeMonthlyPaymentCancel) &
-                                    ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
-                                    ", sSourceCD = " & strParm("p") &
-                                    ", sModified = " & strParm(p_oApp.UserID) &
-                                    ", dModified = " & dateParm(p_oApp.getSysDate)
-
-                        If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
-                            If p_sParent = "" Then p_oApp.RollBackTransaction()
-
-                            MsgBox("Unable to save approval code usage.", vbCritical, "Warning")
-                            Return False
-                        End If
-
+                                    " SET sTransNox = " & strParm(GetNextCode("xxxSCA_Usage", "sTransNox", True, p_oApp.Connection)) &
+                                        ", sApprCode = " & strParm(lsApprovedCD) &
+                                        ", sApproved = " & strParm(lsApproveID) &
+                                        ", sSystemCD = " & strParm(CodeApproval.pxeMonthlyPaymentCancel) &
+                                        ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                                        ", sSourceCD = " & strParm("p") &
+                                        ", sModified = " & strParm(p_oApp.UserID) &
+                                        ", dModified = " & dateParm(p_oApp.getSysDate)
                     Else
                         MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
-                           "Verify entry then try again!", vbCritical, "Warning")
+                               "Verify entry then try again!", vbCritical, "Warning")
                         Return False
                     End If
+                End If
+            End If
+
+            If p_sParent = "" Then p_oApp.BeginTransaction()
+
+            If lsSQL <> "" Then
+                If p_oApp.Execute(lsSQL, "xxxSCA_Usage", Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                    MsgBox("Unable to save approval code usage.", vbCritical, "Warning")
+                    Return False
                 End If
             End If
 
@@ -1131,33 +1138,34 @@ Public Class ARPayment_PR
 
         Dim lsSQL As String
         lsSQL = "SELECT" &
-                       "  a.sAcctNmbr" &
-                       ", b.sCompnyNm sClientNm" &
-                       ", CONCAT(IF(IFNull(b.sHouseNox, '') = '', '', CONCAT(b.sHouseNox, ' ')), b.sAddressx, ', ', c.sTownName, ', ', d.sProvName, ' ', c.sZippCode) xAddressx" &
-                       ", a.nPNValuex" &
-                       ", a.nDownPaym" &
-                       ", a.nGrossPrc" &
-                       ", a.nMonAmort" &
-                       ", a.nCashBalx" &
-                       ", a.nAcctTerm" &
-                       ", a.nABalance" &
-                       ", a.nAmtDuexx" &
-                       ", a.nRebatesx" &
-                       ", a.sClientID" &
-                       ", IFNULL(e.sEngineNo, '') sEngineNo" &
-                       ", IFNULL(e.sFrameNox, '') sFrameNox" &
-                       ", IFNULL(f.sModelNme, '') sModelNme" &
-                       ", IFNULL(g.sColorNme, '') sColorNme" &
-                       ", IFNULL(j.nAcctTerm, 0) nPromTerm" &
-                       ", IFNULL(j.nRebatesx, 0) nPromRebt" &
-               " FROM MC_AR_Master a" &
-                " LEFT JOIN Client_Master b ON a.sClientID = b.sClientID" &
-                " LEFT JOIN TownCity c ON b.sTownIDxx = c.sTownIDxx" &
-                " LEFT JOIN Province d ON c.sProvIDxx = d.sProvIDxx" &
-                " LEFT JOIN MC_Serial e ON a.sSerialID = e.sSerialID" &
-                " LEFT JOIN MC_Model f ON e.sModelIDx = f.sModelIDx" &
-                " LEFT JOIN Color g ON e.sColorIDx = g.sColorIDx" &
-                " LEFT JOIN MC_AR_Rebate j ON a.sAcctNmbr = j.sAcctNmbr"
+                    "  a.sAcctNmbr" &
+                    ", b.sCompnyNm sClientNm" &
+                    ", CONCAT(IF(IFNull(b.sHouseNox, '') = '', '', CONCAT(b.sHouseNox, ' ')), b.sAddressx, ', ', c.sTownName, ', ', d.sProvName, ' ', c.sZippCode) xAddressx" &
+                    ", a.nPNValuex" &
+                    ", a.nDownPaym" &
+                    ", a.nGrossPrc" &
+                    ", a.nMonAmort" &
+                    ", a.nCashBalx" &
+                    ", a.nAcctTerm" &
+                    ", a.nABalance" &
+                    ", a.nAmtDuexx" &
+                    ", a.nRebatesx" &
+                    ", a.sClientID" &
+                    ", IFNULL(e.sEngineNo, '') sEngineNo" &
+                    ", IFNULL(e.sFrameNox, '') sFrameNox" &
+                    ", IFNULL(f.sModelNme, '') sModelNme" &
+                    ", IFNULL(g.sColorNme, '') sColorNme" &
+                    ", IFNULL(j.nAcctTerm, 0) nPromTerm" &
+                    ", IFNULL(j.nRebatesx, 0) nPromRebt" &
+                " FROM MC_AR_Master a" &
+                    " LEFT JOIN Client_Master b ON a.sClientID = b.sClientID" &
+                    " LEFT JOIN TownCity c ON b.sTownIDxx = c.sTownIDxx" &
+                    " LEFT JOIN Province d ON c.sProvIDxx = d.sProvIDxx" &
+                    " LEFT JOIN MC_Serial e ON a.sSerialID = e.sSerialID" &
+                    " LEFT JOIN MC_Model f ON e.sModelIDx = f.sModelIDx" &
+                    " LEFT JOIN Color g ON e.sColorIDx = g.sColorIDx" &
+                    " LEFT JOIN MC_AR_Rebate j ON a.sAcctNmbr = j.sAcctNmbr" &
+                " GROUP BY a.sAcctNmbr"
 
         'Salahin na agad ang mga account sa paghahanap pa lang ng Account Number para sa transaction 
         If p_cTranType = "2" Or p_cTranType = "4" Then
@@ -1922,10 +1930,29 @@ Public Class ARPayment_PR
         loDta = p_oApp.ExecuteQuery(lsSQL)
 
         If loDta.Rows.Count <= 0 Then
-            Return xeTranStat.TRANS_UNKNOWN
+            Return xeTranStat.TRANS_OPEN
         Else
             Return loDta(0).Item("cPostedxx")
         End If
+    End Function
+
+    Public Function hasUnencoded() As Boolean
+        Dim lsSQL As String
+        Dim loDta As DataTable
+
+        hasUnencoded = False
+
+        lsSQL = "SELECT a.sTranDate, b.sTranType" &
+            " FROM DTR_Summary a" &
+               ", DTR_Summary_Detail b" &
+            " WHERE a.sTranDate = b.sTranDate" &
+               " AND a.sBranchCd = " & strParm(p_oApp.BranchCode) &
+               " AND a.sTranDate = " & strParm(Format(CDate(Master("dTransact")), "YYYYMMDD")) &
+               " AND b.sTranType = " & strParm("MPPy")
+
+        loDta = p_oApp.ExecuteQuery(lsSQL)
+
+        Return loDta.Rows.Count > 0
     End Function
 
     Public Sub New(ByVal foRider As GRider)
@@ -1998,16 +2025,3 @@ Public Class ARPayment_PR
 
     End Class
 End Class
-
-
-' CHECK INFO
-' CHECK INFO
-' CHECK INFO
-' INCLUDING TOTAL CHECK AMOUNT
-'
-' DETAIL 1
-' DETAIL X
-'
-'
-'
-'
