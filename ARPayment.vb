@@ -646,50 +646,43 @@ Public Class ARPayment
             Return False
         End If
 
-        If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED) Then
-            MsgBox("Unable to cancel posted transaction!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-            Return False
-        ElseIf p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
+        If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
             MsgBox("Transaction was already cancelled!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
             Return False
         End If
 
-        'mac 2026.06-03
-        '   not needed since ang GCARD points encodin ay sa PostTranasaction() at hindi naman natin inaallow na icancel ang POSTED transaction
-        'If p_oDTMstr(0).Item("cGCrdPstd") = "1" Then
-        '    MsgBox("GCard point was already posted! Please void the GCard transaction before continuing...", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-        '    Return False
-        'End If
-
-
-        Dim lsSQL As String
+        Dim lsSQL As String = ""
+        Dim lsCode As String = ""
 
         Try
-            If p_sParent = "" Then p_oApp.BeginTransaction()
-
             Select Case getDTRStatus()
                 Case xeTranStat.TRANS_OPEN
                     If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
-                        lsSQL = "0"
+                        lsCode = "0"
                     Else
-                        lsSQL = ""
+                        lsCode = "X"
                     End If
                 Case xeTranStat.TRANS_CLOSED
                     If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
-                        MsgBox("Unable to cancel printed transaction when DTR is already CONFIRMED.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                        MsgBox("Unable to CANCEL Printed Transactions when DTR is already CLOSED.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
                         Return False
                     Else
-                        lsSQL = "X"
+                        If Not hasUnencoded() Then
+                            MsgBox("Unable to CANCEL Transactions when DTR is already CLOSED and no unencoded transaction.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                            Return False
+                        End If
+
+                        lsCode = "X"
                     End If
                 Case xeTranStat.TRANS_POSTED
                     MsgBox("DTR is already POSTED. Unable to delete transaction.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
                     Return False
             End Select
 
-            If lsSQL = "0" Or lsSQL = "X" Then
+            If lsCode = "0" Or lsCode = "X" Then
                 Dim lsApprovedCD, lsApproveID, lsApproveName As String
 
-                If lsSQL = "0" Then
+                If lsCode = "0" Then
                     MsgBox("Approval Code needed!!!" & vbCrLf &
                        "Please enter AH approval.", vbCritical, "Notice")
                 Else
@@ -719,14 +712,6 @@ Public Class ARPayment
                                     ", sSourceCD = " & strParm("p") &
                                     ", sModified = " & strParm(p_oApp.UserID) &
                                     ", dModified = " & dateParm(p_oApp.getSysDate)
-
-                        If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
-                            If p_sParent = "" Then p_oApp.RollBackTransaction()
-
-                            MsgBox("Unable to save approval code usage.", vbCritical, "Warning")
-                            Return False
-                        End If
-
                     Else
                         MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
                            "Verify entry then try again!", vbCritical, "Warning")
@@ -735,11 +720,61 @@ Public Class ARPayment
                 End If
             End If
 
+            If p_sParent = "" Then p_oApp.BeginTransaction()
+
+            If lsSQL <> "" Then
+                If p_oApp.Execute(lsSQL, "xxxSCA_Usage", Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                    MsgBox("Unable to save approval code usage.", vbCritical, "Warning")
+                    Return False
+                End If
+            End If
+
+            'mac 2026.06.20
+            '   implement cancel transaction for posted transaction on monthly payment only
+            If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED) Then
+                If p_oDTMstr(0).Item("cTranType") = "2" Then
+                    Dim loTrans As ARTrans
+
+                    loTrans = New ARTrans(p_oApp)
+                    loTrans.Master("sAcctNmbr") = p_oDTMstr(0).Item("sAcctNmbr")
+                    loTrans.Master("dTransact") = p_oDTMstr(0).Item("dTransact")
+                    loTrans.Master("nTranAmtx") = p_oDTMstr(0).Item("nAmountxx")
+                    loTrans.Master("nRebatesx") = p_oDTMstr(0).Item("nRebatesx")
+                    loTrans.Master("nPenaltyx") = p_oDTMstr(0).Item("nPenaltyx")
+                    loTrans.Master("sRemarksx") = p_oDTMstr(0).Item("sRemarksx")
+                    loTrans.Master("sReferNox") = p_oDTMstr(0).Item("sReferNox")
+                    loTrans.Master("sCollIDxx") = p_oDTMstr(0).Item("sCollIDxx")
+
+                    If Not loTrans.MonthlyPayment(p_oDTMstr(0).Item("sTransNox"), Trim(p_oDTMstr(0).Item("sCollIDxx")) = "", True) Then
+                        If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                        Return False
+                    End If
+
+                    If p_oOthersx.cDigitalx = "1" Then
+                        If Not OnlineEntryCancel() Then
+                            If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                            MsgBox("Unable to CANCEL GCARD POINTS.", MsgBoxStyle.Exclamation, "Notice")
+
+                            Return False
+                        End If
+                    End If
+                End If
+            End If
+
+            'If lsCode = "0" Then
+            '    p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED)
+            '    lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
+            'Else
+            '    lsSQL = "DELETE FROM " & p_sMasTable & " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
+            'End If
+
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED)
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
 
-            'mac 2020.11.19
-            '   added validation, rollback changes if rows affected is <= 0
             If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
 
@@ -925,18 +960,6 @@ Public Class ARPayment
             Return False
         End If
 
-        'If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
-        '    MsgBox("Receipt was already printed!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-        '    Return False
-        'End If
-
-        'If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_OPEN) Then
-        '    If Not PostTransaction() Then
-        '        MsgBox("Payment cannot be posted. Please inform MIS/SEG for assistance!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-        '        Return False
-        '    End If
-        'End If
-
         If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
             MsgBox("Receipt was already CANCELLED!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
             Return False
@@ -949,8 +972,8 @@ Public Class ARPayment
 
             Dim lsSQL As String
             lsSQL = "UPDATE " & p_sMasTable &
-                   " SET cPrintedx = " & strParm(xeLogical.YES) &
-                   " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
+                        " SET cPrintedx = " & strParm(xeLogical.YES) &
+                    " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
             If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
                 Return False
@@ -1432,7 +1455,7 @@ endWithRoll:
         Catch ex As Exception
             If p_sParent = "" Then p_oApp.RollBackTransaction()
             MsgBox(ex.Message & vbCrLf & vbCrLf &
-                   "Please inform MIS Department immediately.", , "Unable to AUTO ENTRY GCARD POINTS")
+                   "Please inform MIS Department immediately.", , "Warning")
         End Try
 
         Return True
@@ -1633,38 +1656,39 @@ endWithRoll:
         End If
 
         Dim lsSQL As String
-        lsSQL = "SELECT" & _
-                       "  a.sAcctNmbr" & _
-                       ", b.sCompnyNm sClientNm" & _
-                       ", CONCAT(IF(IFNull(b.sHouseNox, '') = '', '', CONCAT(b.sHouseNox, ' ')), b.sAddressx, ', ', c.sTownName, ', ', d.sProvName, ' ', c.sZippCode) xAddressx" & _
-                       ", a.nPNValuex" & _
-                       ", a.nDownPaym" & _
-                       ", a.nGrossPrc" & _
-                       ", a.nMonAmort" & _
-                       ", a.nCashBalx" & _
-                       ", a.nAcctTerm" & _
-                       ", a.nABalance" & _
-                       ", a.nAmtDuexx" & _
-                       ", a.nRebatesx" & _
-                       ", a.sClientID" & _
-                       ", IFNULL(e.sEngineNo, '') sEngineNo" & _
-                       ", IFNULL(e.sFrameNox, '') sFrameNox" & _
-                       ", IFNULL(f.sModelNme, '') sModelNme" & _
-                       ", IFNULL(g.sColorNme, '') sColorNme" & _
-                       ", IFNULL(h.sGCardNox, '') sGCardNox" & _
-                       ", IFNULL(i.cDigitalx, '') cDigitalx" & _
-                       ", IFNULL(j.nAcctTerm, 0) nPromTerm" & _
-                       ", IFNULL(j.nRebatesx, 0) nPromRebt" & _
-               " FROM MC_AR_Master a" & _
-                " LEFT JOIN Client_Master b ON a.sClientID = b.sClientID" & _
-                " LEFT JOIN TownCity c ON b.sTownIDxx = c.sTownIDxx" & _
-                " LEFT JOIN Province d ON c.sProvIDxx = d.sProvIDxx" & _
-                " LEFT JOIN MC_Serial e ON a.sSerialID = e.sSerialID" & _
-                " LEFT JOIN MC_Model f ON e.sModelIDx = f.sModelIDx" & _
-                " LEFT JOIN Color g ON e.sColorIDx = g.sColorIDx" & _
-                " LEFT JOIN MC_Serial_Service h ON h.sSerialID = a.sSerialID" & _
-                " LEFT JOIN G_Card_Master i ON h.sGCardNox = i.sGCardNox AND i.cCardStat = '4'" & _
-                " LEFT JOIN MC_AR_Rebate j ON a.sAcctNmbr = j.sAcctNmbr"
+        lsSQL = "SELECT" &
+                       "  a.sAcctNmbr" &
+                       ", b.sCompnyNm sClientNm" &
+                       ", CONCAT(IF(IFNull(b.sHouseNox, '') = '', '', CONCAT(b.sHouseNox, ' ')), b.sAddressx, ', ', c.sTownName, ', ', d.sProvName, ' ', c.sZippCode) xAddressx" &
+                       ", a.nPNValuex" &
+                       ", a.nDownPaym" &
+                       ", a.nGrossPrc" &
+                       ", a.nMonAmort" &
+                       ", a.nCashBalx" &
+                       ", a.nAcctTerm" &
+                       ", a.nABalance" &
+                       ", a.nAmtDuexx" &
+                       ", a.nRebatesx" &
+                       ", a.sClientID" &
+                       ", IFNULL(e.sEngineNo, '') sEngineNo" &
+                       ", IFNULL(e.sFrameNox, '') sFrameNox" &
+                       ", IFNULL(f.sModelNme, '') sModelNme" &
+                       ", IFNULL(g.sColorNme, '') sColorNme" &
+                       ", IFNULL(h.sGCardNox, '') sGCardNox" &
+                       ", IFNULL(i.cDigitalx, '') cDigitalx" &
+                       ", IFNULL(j.nAcctTerm, 0) nPromTerm" &
+                       ", IFNULL(j.nRebatesx, 0) nPromRebt" &
+                " FROM MC_AR_Master a" &
+                    " LEFT JOIN Client_Master b ON a.sClientID = b.sClientID" &
+                    " LEFT JOIN TownCity c ON b.sTownIDxx = c.sTownIDxx" &
+                    " LEFT JOIN Province d ON c.sProvIDxx = d.sProvIDxx" &
+                    " LEFT JOIN MC_Serial e ON a.sSerialID = e.sSerialID" &
+                    " LEFT JOIN MC_Model f ON e.sModelIDx = f.sModelIDx" &
+                    " LEFT JOIN Color g ON e.sColorIDx = g.sColorIDx" &
+                    " LEFT JOIN MC_Serial_Service h ON h.sSerialID = a.sSerialID" &
+                    " LEFT JOIN G_Card_Master i ON h.sGCardNox = i.sGCardNox AND i.cCardStat = '4'" &
+                    " LEFT JOIN MC_AR_Rebate j ON a.sAcctNmbr = j.sAcctNmbr" &
+                " GROUP BY a.sAcctNmbr"
 
         'Salahin na agad ang mga account sa paghahanap pa lang ng Account Number para sa transaction 
         If p_cTranType = "2" Or p_cTranType = "4" Then
@@ -2458,10 +2482,29 @@ endWithRoll:
         loDta = p_oApp.ExecuteQuery(lsSQL)
 
         If loDta.Rows.Count <= 0 Then
-            Return xeTranStat.TRANS_UNKNOWN
+            Return xeTranStat.TRANS_OPEN
         Else
             Return loDta(0).Item("cPostedxx")
         End If
+    End Function
+
+    Public Function hasUnencoded() As Boolean
+        Dim lsSQL As String
+        Dim loDta As DataTable
+
+        hasUnencoded = False
+
+        lsSQL = "SELECT a.sTranDate, b.sTranType" &
+            " FROM DTR_Summary a" &
+               ", DTR_Summary_Detail b" &
+            " WHERE a.sTranDate = b.sTranDate" &
+               " AND a.sBranchCd = " & strParm(p_oApp.BranchCode) &
+               " AND a.sTranDate = " & strParm(Format(CDate(Master("dTransact")), "YYYYMMDD")) &
+               " AND b.sTranType = " & strParm("MPPy")
+
+        loDta = p_oApp.ExecuteQuery(lsSQL)
+
+        Return loDta.Rows.Count > 0
     End Function
 
     Public Sub New(ByVal foRider As GRider)
@@ -2494,6 +2537,10 @@ endWithRoll:
         If fctrantype = "2" Or fctrantype = "3" Or fctrantype = "4" Then
             p_cTranType = fctrantype
         End If
+    End Sub
+
+    Protected Overrides Sub Finalize()
+        MyBase.Finalize()
     End Sub
 
     Private Class Others
