@@ -610,72 +610,58 @@ Public Class ARPayment_PR
             Return False
         End If
 
-        Dim lsSQL As String = ""
-        Dim lsCode As String = ""
+        If p_oDTMstr(0).Item("cPrintedx") = CStr(xeLogical.NO) Then
+            MsgBox("Unable cancel not printed transactions!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+            Return False
+        End If
+
+        Select Case getDTRStatus()
+            Case xeTranStat.TRANS_OPEN
+                'If Not hasUnencoded() Then
+                '    MsgBox("No enencoded transaction for this type, unable to cancel transaction!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                '    Return False
+                'End If
+
+                MsgBox("Approval Code needed!!!" & vbCrLf & "Please enter AH approval.", MsgBoxStyle.OkOnly + MsgBoxStyle.Information, p_sMsgHeadr)
+            Case xeTranStat.TRANS_CLOSED
+                MsgBox("Unable to cancel transaction when DTR is already CLOSED!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                Return False
+            Case xeTranStat.TRANS_POSTED
+                MsgBox("DTR is already POSTED. Unable to cancel transaction!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                Return False
+            Case Else
+                MsgBox("DTR is already UNKOWN. Unable to cancel transaction!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                Return False
+        End Select
 
         Try
-            Select Case getDTRStatus()
-                Case xeTranStat.TRANS_OPEN
-                    If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
-                        lsCode = "0"
-                    Else
-                        lsCode = "X"
-                    End If
-                Case xeTranStat.TRANS_CLOSED
-                    If p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES Then
-                        MsgBox("Unable to CANCEL Printed Transactions when DTR is already CLOSED.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-                        Return False
-                    Else
-                        If Not hasUnencoded() Then
-                            MsgBox("Unable to CANCEL Transactions when DTR is already CLOSED and no unencoded transaction.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-                            Return False
-                        End If
+            Dim lsSQL, lsApprovedCD, lsApproveID, lsApproveName As String
 
-                        lsCode = "X"
-                    End If
-                Case xeTranStat.TRANS_POSTED
-                    MsgBox("DTR is already POSTED. Unable to delete transaction.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
-                    Return False
-            End Select
+            If Not GetCodeApproval(p_oApp, lsApprovedCD, lsApproveID, lsApproveName) Then
+                MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
+                        "Verify entry then try again!", vbCritical, "Warning")
+                Return False
+            Else
+                If isValidApproveCode(
+                        CodeApproval.pxeMonthlyPaymentCancel,
+                        p_oApp.BranchCode,
+                        "0", 'AH
+                        p_oDTMstr(0).Item("dTransact"),
+                        p_oDTMstr(0).Item("sReferNox"),
+                        lsApprovedCD) Then
 
-            If lsCode = "0" Or lsCode = "X" Then
-                Dim lsApprovedCD, lsApproveID, lsApproveName As String
-
-                If lsCode = "0" Then
-                    MsgBox("Approval Code needed!!!" & vbCrLf &
-                           "Please enter AH approval.", vbCritical, "Notice")
+                    lsSQL = "INSERT INTO xxxSCA_Usage" &
+                        " SET sTransNox = " & strParm(GetNextCode("xxxSCA_Usage", "sTransNox", True, p_oApp.Connection)) &
+                            ", sApprCode = " & strParm(lsApprovedCD) &
+                            ", sApproved = " & strParm(lsApproveID) &
+                            ", sSystemCD = " & strParm(CodeApproval.pxeMonthlyPaymentCancel) &
+                            ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                            ", sSourceCD = " & strParm("p") &
+                            ", sModified = " & strParm(p_oApp.UserID) &
+                            ", dModified = " & dateParm(p_oApp.getSysDate)
                 Else
-                    MsgBox("Approval Code needed!!!" & vbCrLf &
-                           "Please enter MIS approval.", vbCritical, "Notice")
-                End If
-
-                If Not GetCodeApproval(p_oApp, lsApprovedCD, lsApproveID, lsApproveName) Then
-                    MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
-                               "Verify entry then try again!", vbCritical, "Warning")
+                    MsgBox("Invalid APPROVAL CODE detected." & vbCrLf & "Verify entry then try again!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
                     Return False
-                Else
-                    If isValidApproveCode(
-                            CodeApproval.pxeMonthlyPaymentCancel,
-                            p_oApp.BranchCode,
-                            IIf(p_oDTMstr(0).Item("cPrintedx") = xeLogical.YES, "0", "X"),
-                            p_oDTMstr(0).Item("dTransact"),
-                            p_oDTMstr(0).Item("sReferNox"),
-                            lsApprovedCD) Then
-
-                        lsSQL = "INSERT INTO xxxSCA_Usage" &
-                                    " SET sTransNox = " & strParm(GetNextCode("xxxSCA_Usage", "sTransNox", True, p_oApp.Connection)) &
-                                        ", sApprCode = " & strParm(lsApprovedCD) &
-                                        ", sApproved = " & strParm(lsApproveID) &
-                                        ", sSystemCD = " & strParm(CodeApproval.pxeMonthlyPaymentCancel) &
-                                        ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
-                                        ", sSourceCD = " & strParm("p") &
-                                        ", sModified = " & strParm(p_oApp.UserID) &
-                                        ", dModified = " & dateParm(p_oApp.getSysDate)
-                    Else
-                        MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
-                               "Verify entry then try again!", vbCritical, "Warning")
-                        Return False
-                    End If
                 End If
             End If
 
@@ -685,7 +671,7 @@ Public Class ARPayment_PR
                 If p_oApp.Execute(lsSQL, "xxxSCA_Usage", Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
                     If p_sParent = "" Then p_oApp.RollBackTransaction()
 
-                    MsgBox("Unable to save approval code usage.", vbCritical, "Warning")
+                    MsgBox("Unable to save approval code usage.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
                     Return False
                 End If
             End If
@@ -693,11 +679,10 @@ Public Class ARPayment_PR
             p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED)
             lsSQL = ADO2SQL(p_oDTMstr, p_sMasTable, "sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox")))
 
-            'mac 2020.11.19
-            '   added validation, rollback changes if rows affected is <= 0
             If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
                 If p_sParent = "" Then p_oApp.RollBackTransaction()
 
+                MsgBox("Unable cancel " & p_oDTMstr(0).Item("sTransNox"), MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
                 Return False
             End If
 
@@ -713,6 +698,108 @@ Public Class ARPayment_PR
 
             Return False
         End Try
+    End Function
+
+    Public Function DeleteTransaction() As Boolean
+        If Not (p_nEditMode = xeEditMode.MODE_READY Or
+                p_nEditMode = xeEditMode.MODE_UPDATE) Then
+
+            MsgBox("Invalid Edit Mode detected!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+            Return False
+        End If
+
+        If p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_CANCELLED) Then
+            MsgBox("Transaction was already cancelled!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+            Return False
+        ElseIf p_oDTMstr(0).Item("cPostedxx") = CStr(xeTranStat.TRANS_POSTED) Then
+            MsgBox("Transaction was already posted!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+            Return False
+        End If
+
+        If p_oDTMstr(0).Item("cPrintedx") = CStr(xeLogical.YES) Then
+            MsgBox("Unable void printed transactions!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+            Return False
+        End If
+
+        Select Case getDTRStatus()
+            Case xeTranStat.TRANS_OPEN
+                MsgBox("Approval Code needed!!!" & vbCrLf & "Please enter MIS approval.", MsgBoxStyle.OkOnly + MsgBoxStyle.Information, p_sMsgHeadr)
+            Case xeTranStat.TRANS_CLOSED
+                If Not hasUnencoded() Then
+                    MsgBox("No enencoded transaction for this type, unable to void transaction!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                    Return False
+                End If
+
+                MsgBox("Approval Code needed!!!" & vbCrLf & "Please enter MIS approval.", MsgBoxStyle.OkOnly + MsgBoxStyle.Information, p_sMsgHeadr)
+            Case xeTranStat.TRANS_POSTED
+                MsgBox("DTR is already POSTED. Unable to delete transaction!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                Return False
+            Case Else
+                MsgBox("DTR is already UNKOWN. Unable to delete transaction!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                Return False
+        End Select
+
+        Try
+            Dim lsSQL, lsApprovedCD, lsApproveID, lsApproveName As String
+
+            If Not GetCodeApproval(p_oApp, lsApprovedCD, lsApproveID, lsApproveName) Then
+                MsgBox("Invalid APPROVAL CODE detected." & vbCrLf &
+                        "Verify entry then try again!", vbCritical, "Warning")
+                Return False
+            Else
+                If isValidApproveCode(
+                        CodeApproval.pxeMonthlyPaymentCancel,
+                        p_oApp.BranchCode,
+                        "X", 'mis
+                        p_oDTMstr(0).Item("dTransact"),
+                        p_oDTMstr(0).Item("sReferNox"),
+                        lsApprovedCD) Then
+
+                    lsSQL = "INSERT INTO xxxSCA_Usage" &
+                        " SET sTransNox = " & strParm(GetNextCode("xxxSCA_Usage", "sTransNox", True, p_oApp.Connection)) &
+                            ", sApprCode = " & strParm(lsApprovedCD) &
+                            ", sApproved = " & strParm(lsApproveID) &
+                            ", sSystemCD = " & strParm(CodeApproval.pxeMonthlyPaymentCancel) &
+                            ", sSourceNo = " & strParm(p_oDTMstr(0).Item("sTransNox")) &
+                            ", sSourceCD = " & strParm("p") &
+                            ", sModified = " & strParm(p_oApp.UserID) &
+                            ", dModified = " & dateParm(p_oApp.getSysDate)
+                Else
+                    MsgBox("Invalid APPROVAL CODE detected." & vbCrLf & "Verify entry then try again!", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                    Return False
+                End If
+            End If
+
+            If p_sParent = "" Then p_oApp.BeginTransaction()
+
+            If lsSQL <> "" Then
+                If p_oApp.Execute(lsSQL, "xxxSCA_Usage", Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                    If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                    MsgBox("Unable to save approval code usage.", MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                    Return False
+                End If
+            End If
+
+            lsSQL = "DELETE FROM " & p_sMasTable & " WHERE sTransNox = " & strParm(p_oDTMstr(0).Item("sTransNox"))
+
+            If p_oApp.Execute(lsSQL, p_sMasTable, Left(p_oDTMstr.Rows(0).Item("sTransNox"), 4)) <= 0 Then
+                If p_sParent = "" Then p_oApp.RollBackTransaction()
+
+                MsgBox("Unable void " & p_oDTMstr(0).Item("sTransNox"), MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+                Return False
+            End If
+
+            Call undoChecks()
+
+            If p_sParent = "" Then p_oApp.CommitTransaction()
+        Catch ex As Exception
+            If p_sParent = "" Then p_oApp.RollBackTransaction()
+            MsgBox(ex.Message, MsgBoxStyle.OkOnly + MsgBoxStyle.Critical, p_sMsgHeadr)
+            Return False
+        End Try
+
+        Return True
     End Function
 
     Public Function PrintTrans() As Boolean
