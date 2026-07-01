@@ -2012,7 +2012,7 @@ Public Class ARPayment_PR
         Dim loDta As DataTable
 
         lsSQL = "SELECT cPostedxx FROM DTR_Summary WHERE sBranchCd = " & strParm(p_oApp.BranchCode) &
-                  " AND sTranDate = " & strParm(Format(Master("dTransact"), "YYYYMMDD"))
+                  " AND sTranDate = " & strParm(Format(Master("dTransact"), "yyyyMMdd"))
 
         loDta = p_oApp.ExecuteQuery(lsSQL)
 
@@ -2034,7 +2034,7 @@ Public Class ARPayment_PR
                ", DTR_Summary_Detail b" &
             " WHERE a.sTranDate = b.sTranDate" &
                " AND a.sBranchCd = " & strParm(p_oApp.BranchCode) &
-               " AND a.sTranDate = " & strParm(Format(CDate(Master("dTransact")), "YYYYMMDD")) &
+               " AND a.sTranDate = " & strParm(Format(CDate(Master("dTransact")), "yyyyMMdd")) &
                " AND b.sTranType = " & strParm("MPPy")
 
         loDta = p_oApp.ExecuteQuery(lsSQL)
