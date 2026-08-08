@@ -844,12 +844,14 @@ Public Class ARPayment
                     End If
 
                     If p_oOthersx.cDigitalx = "1" Then
-                        If Not OnlineEntryCancel() Then
-                            If p_sParent = "" Then p_oApp.RollBackTransaction()
+                        If p_oDTMstr(0).Item("cGCrdPstd") = CStr(xeTranStat.TRANS_CLOSED) Then
+                            If Not OnlineEntryCancel() Then
+                                If p_sParent = "" Then p_oApp.RollBackTransaction()
 
-                            MsgBox("Unable to CANCEL GCARD POINTS.", MsgBoxStyle.Exclamation, "Notice")
+                                MsgBox("Unable to CANCEL GCARD POINTS.", MsgBoxStyle.Exclamation, "Notice")
 
-                            Return False
+                                Return False
+                            End If
                         End If
                     End If
                 End If
@@ -1304,9 +1306,35 @@ Public Class ARPayment
     'mac 2026-06-03
     Private Function OnlineEntryCancel() As Boolean
         'run command
-        Dim lsVal = p_oApp.ProductID & " " & p_oApp.UserID & " " & p_oOthersx.sGCardNox & " " & p_oOthersx.cDigitalx & " " & p_oDTMstr(0)("sReferNox") & " " & p_sSourceCd & " " & Format(p_oDTMstr(0)("dTransact"), "yyyy-MM-dd")
+        'M02910000005 is cancel validator
+        Dim lsVal = p_oApp.ProductID & " " & p_oApp.UserID & " " & p_oOthersx.sGCardNox & " " & p_oOthersx.cDigitalx & " " & p_oDTMstr(0)("sReferNox") & " " & "M02910000005" & " " & Format(p_oDTMstr(0)("dTransact"), "yyyy-MM-dd")
+        Debug.Print(lsVal)
 
-        Return RMJExecute("D:\GGC_Java_Systems\", "gcard-online-points-entry-cancel.bat", lsVal) = 0
+        RMJExecute("D:\GGC_Java_Systems\", "gcard-online-points-entry-cancel.bat ", lsVal)
+
+        Dim lsResultPath As String = "D:\GGC_Java_Systems\temp\res.tmp"
+
+        'get response from result file
+        Dim lsResponse As String = ReadFile(lsResultPath)
+        'delete result file
+        DeleteFile(lsResultPath)
+
+        If lsResponse = "" Then
+            MsgBox("No response from JAVA API.", MsgBoxStyle.Exclamation, "Warning")
+            Return False
+        End If
+
+        'extract data
+        Dim loJSON As JObject = JObject.Parse(lsResponse)
+
+        If loJSON.GetValue("result") = "success" Then
+            MsgBox(loJSON.GetValue("message"), MsgBoxStyle.Information, "Notice")
+        Else
+            MsgBox(CStr(loJSON.GetValue("message")), MsgBoxStyle.Exclamation, "Notice")
+            Return False
+        End If
+
+        Return True
     End Function
 
     'mac 2024-02.22
@@ -2332,16 +2360,39 @@ endWithRoll:
         Return getRebates
     End Function
 
+    ' Maynard Update Same date on due date 07-31-2026
     Private Function CalculateExcessDays(transDate As Date, firstPayDate As Date) As Integer
-        If transDate.Day > firstPayDate.Day Then
-            Dim compareDate = New Date(transDate.Year, transDate.Month, firstPayDate.Day)
-            Return CInt((transDate - compareDate).TotalDays)
+        Dim payDay As Integer = firstPayDate.Day
+
+        ' Candidate pay date in the same month as transDate, clamped to a valid day
+        Dim sameMonthDays As Integer = Date.DaysInMonth(transDate.Year, transDate.Month)
+        Dim sameMonthPayDay As Integer = Math.Min(payDay, sameMonthDays)
+        Dim sameMonthPayDate As New Date(transDate.Year, transDate.Month, sameMonthPayDay)
+
+        Dim compareDate As Date
+
+        If transDate.Day >= sameMonthPayDay Then
+            compareDate = sameMonthPayDate
         Else
-            Dim nextMonth = transDate.AddMonths(1)
-            Dim compareDate = New Date(nextMonth.Year, nextMonth.Month, firstPayDate.Day)
-            Return CInt((compareDate - transDate).TotalDays)
+            ' Pay date hasn't occurred yet this month — use last month's pay date
+            Dim prevMonth = transDate.AddMonths(-1)
+            Dim prevMonthDays As Integer = Date.DaysInMonth(prevMonth.Year, prevMonth.Month)
+            Dim prevMonthPayDay As Integer = Math.Min(payDay, prevMonthDays)
+            compareDate = New Date(prevMonth.Year, prevMonth.Month, prevMonthPayDay)
         End If
+
+        Return CInt((transDate - compareDate).TotalDays)
     End Function
+    'Private Function CalculateExcessDays(transDate As Date, firstPayDate As Date) As Integer
+    '    If transDate.Day > firstPayDate.Day Then
+    '        Dim compareDate = New Date(transDate.Year, transDate.Month, firstPayDate.Day)
+    '        Return CInt((transDate - compareDate).TotalDays)
+    '    Else
+    '        Dim nextMonth = transDate.AddMonths(1)
+    '        Dim compareDate = New Date(nextMonth.Year, nextMonth.Month, firstPayDate.Day)
+    '        Return CInt((compareDate - transDate).TotalDays)
+    '    End If
+    'End Function
 
     Public Sub SearchBranch(ByVal fsValue As String _
                           , ByVal fbIsCode As Boolean _
