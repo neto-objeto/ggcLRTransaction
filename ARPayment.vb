@@ -2289,7 +2289,6 @@ endWithRoll:
                         loDta(0).Item("nDebtTotl")
 
             lnAmtDuex = lnAmtDuex - (loDta(0).Item("nPaymTotl") + loDta(0).Item("nRebTotlx") +
-                        p_oDTMstr(0).Item("nAmountxx") + p_oDTMstr(0).Item("nRebatesx") +
                         loDta(0).Item("nDownTotl") + loDta(0).Item("nCashTotl") +
                         loDta(0).Item("nCredTotl"))
 
@@ -2315,10 +2314,12 @@ endWithRoll:
                     getRebates = lnRebates
                 End If
 
-                If lnExcessDay < 30 Then
+                If lnExcessDay > 0 Then
                     If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
                         'lnRebates = lnRebates + loDta(0).Item("nRebatesx")
                         getRebates = lnRebates + loDta(0).Item("nRebatesx")
+                    Else
+                        lnRebates = 0
                     End If
                 End If
             Else
@@ -2341,7 +2342,9 @@ endWithRoll:
                         End If
                     Else
                         'Since it has no promo rebate then use the default rebate
-                        If lnExcessDay <= 30 Then
+                        If lnExcessDay > 0 Then
+                            Debug.Print(loDta(0).Item("nMonAmort"))
+
                             If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
                                 lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
                             Else
