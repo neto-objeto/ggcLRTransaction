@@ -2342,7 +2342,7 @@ endWithRoll:
                         End If
                     Else
                         'Since it has no promo rebate then use the default rebate
-                        If lnExcessDay > 0 Then
+                        If lnExcessDay <= 0 Then
                             Debug.Print(loDta(0).Item("nMonAmort"))
 
                             If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
@@ -2351,7 +2351,7 @@ endWithRoll:
                                 lnRebates = 0
                             End If
                         ElseIf Math.Abs(lnAmtDuex) >= loDta(0).Item("nMonAmort") Then
-                            lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
+                            lnRebates = 0
                         End If
                     End If
 
