@@ -2235,7 +2235,16 @@ endWithRoll:
             End If
         End With
     End Sub
-
+    Private Function GetRegularRebate(ByVal lnAmtDuex As Double, ByVal lnExcessDay As Integer,
+                                  ByVal lnPaymTerm As Long, ByVal lnMonAmort As Double,
+                                  ByVal lnRegRebt As Double) As Double
+        If lnAmtDuex < 0 Then
+            Return lnPaymTerm * lnRegRebt
+        ElseIf lnAmtDuex <= lnMonAmort AndAlso lnExcessDay <= 0 Then
+            Return lnPaymTerm * lnRegRebt
+        End If
+        Return 0
+    End Function
     Private Function getRebates(ByRef lnExcessDay As Integer, ByRef lnRebates As Double) As Double
         Dim loLRMaster As ARTrans
         Dim ldDueDate As Date
@@ -2246,6 +2255,7 @@ endWithRoll:
         Dim lnPaymTerm As Long
 
         getRebates = 0
+        lnRebates = 0
 
         loLRMaster = New ARTrans(p_oApp)
         With loLRMaster
@@ -2262,102 +2272,55 @@ endWithRoll:
             lnActTerm = .GetMonthTerm(loDta(0).Item("dFirstPay"), ldDueDate)
 
             'kalyptus - 2020.06.06 03:49pm
-            'Replace the logic below
             'Freeze the term for 2 months for sales prior to the lockdown period and payments from the lockdown period...
             lnActTerm = lnActTerm - getFreezeMonth(loDta(0).Item("sAcctNmbr"), ldDueDate)
 
-            ' compute the excess days for validation of rebates by user
-            'If Day(p_oDTMstr(0).Item("dTransact")) > Day(loDta(0).Item("dFirstPay")) Then
-            '    lnExcessDay = DateDiff("d", DateSerial(Year(p_oDTMstr(0).Item("dTransact")),
-            '                   Month(p_oDTMstr(0).Item("dTransact")), Day(loDta(0).Item("dFirstPay"))),
-            '                   p_oDTMstr(0).Item("dTransact"))
-            'Else
-            '    ldDueDate = DateSerial(Year(p_oDTMstr(0).Item("dTransact")),
-            '                   Month(p_oDTMstr(0).Item("dTransact")) + 1, Day(loDta(0).Item("dFirstPay")))
-            '    If Month(DateAdd("m", 1, p_oDTMstr(0).Item("dTransact"))) <> Month(ldDueDate) Then
-            '        ldDueDate = DateAdd("d", Day(ldDueDate) * -1, ldDueDate)
-            '    End If
-
-            '    lnExcessDay = DateDiff("d", p_oDTMstr(0).Item("dTransact"), ldDueDate)
-            'End If
-
+            'days late for this month's due date (0 = on the due date or earlier)
             lnExcessDay = CalculateExcessDays(p_oDTMstr(0).Item("dTransact"), loDta(0).Item("dFirstPay"))
 
+            'amount due as of the transaction date (negative = account is ahead)
             lnAmtDuex = (lnActTerm * loDta(0).Item("nMonAmort")) +
-                        loDta(0).Item("nDownPaym") +
-                        loDta(0).Item("nCashBalx") +
-                        loDta(0).Item("nDebtTotl")
+                    loDta(0).Item("nDownPaym") +
+                    loDta(0).Item("nCashBalx") +
+                    loDta(0).Item("nDebtTotl")
 
             lnAmtDuex = lnAmtDuex - (loDta(0).Item("nPaymTotl") + loDta(0).Item("nRebTotlx") +
-                        loDta(0).Item("nDownTotl") + loDta(0).Item("nCashTotl") +
-                        loDta(0).Item("nCredTotl"))
+                    loDta(0).Item("nDownTotl") + loDta(0).Item("nCashTotl") +
+                    loDta(0).Item("nCredTotl"))
 
+            Dim lnMonAmort As Double = CDbl(loDta(0).Item("nMonAmort"))
+            Dim lnRegRebt As Double = CDbl(loDta(0).Item("nRebatesx"))
 
-            'kalyptus-2022.10.22 10:08am
-            'incorporate computation of rebate with promo
-            If p_oOthersx.nPromTerm <> 0 And lnActTerm > p_oOthersx.nPromTerm Then
-                'if account payment has no/or beyond promo term then perform the regular computation of rebate
-                If lnAmtDuex < 0 Then
-                    If p_oDTMstr(0).Item("dTransact") < loDta(0).Item("dFirstPay") Then
-                        'mac 2021.09.22
-                        lnRebates = (((lnAmtDuex * -1) \ loDta(0).Item("nMonAmort"))) * loDta(0).Item("nRebatesx")
-                    Else
-                        'orig
-                        'lnRebates = (((lnAmtDuex * -1) \ loDta(0).Item("nMonAmort")) + 1) * loDta(0).Item("nRebatesx")
-                        'mac 2022.12.28
-                        lnRebates = (((lnAmtDuex * -1) \ loDta(0).Item("nMonAmort"))) * loDta(0).Item("nRebatesx")
-                    End If
+            'number of monthly amortizations covered by this payment
+            lnPaymTerm = (p_oDTMstr(0).Item("nAmountxx") + p_oDTMstr(0).Item("nRebatesx")) \ loDta(0).Item("nMonAmort")
 
-                    getRebates = lnRebates
-                ElseIf lnAmtDuex = 0 Then
-                    lnRebates = loDta(0).Item("nRebatesx")
-                    getRebates = lnRebates
-                End If
+            'number of monthly amortizations already paid
+            lnTotlTerm = (loDta(0).Item("nPaymTotl") + loDta(0).Item("nRebTotlx")) \ loDta(0).Item("nMonAmort")
 
-                If lnExcessDay > 0 Then
-                    If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
-                        'lnRebates = lnRebates + loDta(0).Item("nRebatesx")
-                        getRebates = lnRebates + loDta(0).Item("nRebatesx")
-                    Else
-                        lnRebates = 0
-                    End If
+            'remaining promo terms (only when the account is still within the promo)
+            Dim lnPromLeft As Long = 0
+            If p_oOthersx.nPromTerm <> 0 And lnActTerm <= p_oOthersx.nPromTerm Then
+                lnPromLeft = CLng(p_oOthersx.nPromTerm) - lnTotlTerm
+            End If
+
+            If lnAmtDuex <= 0 AndAlso lnPromLeft > 0 Then
+                '--- PROMO REBATE STILL APPLIES ---
+                If lnPromLeft >= lnPaymTerm Then
+                    lnRebates = lnPaymTerm * p_oOthersx.nPromRebt
+                Else
+                    lnRebates = (lnPromLeft * p_oOthersx.nPromRebt) +
+                            ((lnPaymTerm - lnPromLeft) * lnRegRebt)
                 End If
             Else
-                'Compute rebate based on the promo
-                lnTotlTerm = (loDta(0).Item("nPaymTotl") + loDta(0).Item("nRebTotlx")) \ loDta(0).Item("nMonAmort")
-                lnPaymTerm = (p_oDTMstr(0).Item("nAmountxx") + p_oDTMstr(0).Item("nRebatesx")) \ loDta(0).Item("nMonAmort")
-
-                If lnAmtDuex <= 0 Then
-                    'Compute for the remaining term that has a promo rebate
-                    lnTotlTerm = p_oOthersx.nPromTerm - lnTotlTerm
-
-                    'Does this payment has promo rebate
-                    If lnTotlTerm > 0 Then
-                        'Is remaining promo term less than or equal the current monthly amortization payment
-                        If lnTotlTerm >= lnPaymTerm Then
-                            lnRebates = lnPaymTerm * p_oOthersx.nPromRebt
-                        Else
-                            lnRebates = lnTotlTerm * p_oOthersx.nPromRebt
-                            lnRebates = lnRebates + ((lnPaymTerm - lnTotlTerm) * loDta(0).Item("nRebatesx"))
-                        End If
-                    Else
-                        'Since it has no promo rebate then use the default rebate
-                        If lnExcessDay <= 0 Then
-                            Debug.Print(loDta(0).Item("nMonAmort"))
-
-                            If lnAmtDuex <= loDta(0).Item("nMonAmort") Then
-                                lnRebates = lnPaymTerm * loDta(0).Item("nRebatesx")
-                            Else
-                                lnRebates = 0
-                            End If
-                        ElseIf Math.Abs(lnAmtDuex) >= loDta(0).Item("nMonAmort") Then
-                            lnRebates = 0
-                        End If
-                    End If
-
-                    getRebates = lnRebates
-                End If
+                '--- REGULAR REBATE (no promo, expired promo, or promo used up) ---
+                lnRebates = GetRegularRebate(lnAmtDuex, lnExcessDay, lnPaymTerm, lnMonAmort, lnRegRebt)
             End If
+
+            getRebates = lnRebates
+
+            Debug.Print("ActTerm=" & lnActTerm & " AmtDue=" & lnAmtDuex & " Excess=" & lnExcessDay &
+                    " PaymTerm=" & lnPaymTerm & " PromTerm=" & p_oOthersx.nPromTerm &
+                    " PromLeft=" & lnPromLeft & " Result=" & getRebates)
         End With
 
         Return getRebates
@@ -2365,26 +2328,14 @@ endWithRoll:
 
     ' Maynard Update Same date on due date 07-31-2026
     Private Function CalculateExcessDays(transDate As Date, firstPayDate As Date) As Integer
-        Dim payDay As Integer = firstPayDate.Day
+        Dim dueDay As Integer = Math.Min(firstPayDate.Day,
+                                     Date.DaysInMonth(transDate.Year, transDate.Month))
 
-        ' Candidate pay date in the same month as transDate, clamped to a valid day
-        Dim sameMonthDays As Integer = Date.DaysInMonth(transDate.Year, transDate.Month)
-        Dim sameMonthPayDay As Integer = Math.Min(payDay, sameMonthDays)
-        Dim sameMonthPayDate As New Date(transDate.Year, transDate.Month, sameMonthPayDay)
-
-        Dim compareDate As Date
-
-        If transDate.Day >= sameMonthPayDay Then
-            compareDate = sameMonthPayDate
-        Else
-            ' Pay date hasn't occurred yet this month — use last month's pay date
-            Dim prevMonth = transDate.AddMonths(-1)
-            Dim prevMonthDays As Integer = Date.DaysInMonth(prevMonth.Year, prevMonth.Month)
-            Dim prevMonthPayDay As Integer = Math.Min(payDay, prevMonthDays)
-            compareDate = New Date(prevMonth.Year, prevMonth.Month, prevMonthPayDay)
+        If transDate.Day > dueDay Then
+            Return transDate.Day - dueDay
         End If
 
-        Return CInt((transDate - compareDate).TotalDays)
+        Return 0
     End Function
     'Private Function CalculateExcessDays(transDate As Date, firstPayDate As Date) As Integer
     '    If transDate.Day > firstPayDate.Day Then
